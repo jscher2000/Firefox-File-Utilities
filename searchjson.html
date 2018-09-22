@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+<title>Search Engine Extractor &mdash; Fx File Utilities</title>
+<link rel="stylesheet" href="styles.css" type="text/css">
+</head>
+<body>
+<nav>
+<ul>
+<li id="logo">Fx File Utilities</li>
+<li><a href="scrounger.html" title="Scrounge URLs from session history files">Session History</a></li>
+<li><a href="bookbackreader.html" title="Save JSON or Export HTML from bookmark backup files">Bookmark Backup</a></li>
+<li><span id="current">Search Engines</span></li>
+</ul>
+</nav>
+<header>
+<h1>Firefox Search Engine Extractor</h1>
+</header>
+<article>
+<div id="main">
+<p><em>Firefox stores information on built-in and added-on search engine plugins in a file compressed using Mozilla's flavor of LZ4 compression (.mozlz4 file extension). This page provides a brief summary table showing what it found; the full JSON data, including paths and parameters, can be saved for examination in a Firefox tab or another tool.</em></p>
+<h2>Step 1: Load File</h2>
+<p>Drag and drop search.json.mozlz4 onto the empty text box. This file is not sent to the network, it is only read within this page in Firefox.</p>
+<div id="uploaddiv">
+	<textarea id="drop_zone" ondrop="drop_handler(event);"  ondragover="dragover_handler(event);"  ondragend="dragend_handler(event);" style="width:80%" autocomplete="false" placeholder="Drop file here"></textarea>
+	<div style="position:absolute; right:0; top:0; width:calc(20% - 18px); cursor: pointer;" onclick="document.querySelector('#btnBrowse').click();";>
+		<p style="margin-top:2em; text-align:center;">Or open using: <br><br><input type="file" id="btnBrowse" onchange="loadFile(this);" style="width: 80px"></p>
+	</div>
+</div>
+<p><em>Note: To try a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
+<h2>Step 2: Review Contents / Save File</h2>
+<div id="output"></div>
+<p><button onclick="SaveJSON()" id="btnJSON" disabled>Save Uncompressed JSON (search_extracted.json)</button></p>
+</div><!-- #main -->
+</article>
+<footer>
+<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2018-08-26. <a href="/res/searchjson_orig.html">Original</a></p>
+</footer>
+<script type="text/javascript">
+// Clean up form controls on reload (i.e., not bypassing cache)
+document.getElementById('drop_zone').value = '';
+document.getElementById('btnJSON').setAttribute('disabled', 'disabled');
+function readfile(f){
+	// Add notation below textarea
+	if (document.getElementById('fileinfo')) document.getElementById('fileinfo').remove();
+	document.getElementById('drop_zone').insertAdjacentHTML('afterend', '<p id="fileinfo">File name: <span>'+f.name+'</span>; Size: '+f.size+'; last modified <span>'+new Date(f.lastModified).toLocaleString()+'</span></p>');
+	// Use a FileReader to pull the contents out of the file and drop it into the textarea element
+	var reader = new FileReader();
+	reader.onload = function(evt) { // handle result of the file read
+		if (typeof evt.target.result == 'string') document.getElementById('drop_zone').value = evt.target.result;
+		else {
+			let utf8decoder = new TextDecoder('utf-8');
+			var jsontxt = utf8decoder.decode(decomp(evt.target.result));
+			document.getElementById('drop_zone').value = jsontxt;
+		}
+	};
+	// Assume anything without .jsonlz4 in the name is uncompressed
+	if (f.name.indexOf('.mozlz4') == -1) reader.readAsText(f);
+	else reader.readAsArrayBuffer(f);
+}
+function decomp(arrbuff){
+	// See: https://github.com/pierrec/node-lz4
+	// Create typed array from ArrayBuffer
+	var u8arrbuff = new Uint8Array(arrbuff);
+	// Is it a standard JSON file with jsonlz4 somewhere in its name?
+	if ('{' == String.fromCharCode(u8arrbuff[0])) {
+		return u8arrbuff;
+	}
+	// Compute uncompressed data size
+	var u8sz = u8arrbuff.slice(8, 12);
+	var origLen = u8sz[0] + (u8sz[1] * 256) + (u8sz[2] * 256 * 256) + (u8sz[3] * 256 * 256 * 256);
+	// Extract compressed data (past header)
+	jsonstart = 12;
+	var u8comp = u8arrbuff.slice(jsonstart);
+	// Create LZ4 buffer
+	var Buffer = require('buffer').Buffer;
+	var LZ4 = require('lz4');
+	var comp = new Buffer(u8comp);
+	var orig = new Buffer(origLen);
+	// Do the deed
+	var decomLen = LZ4.decodeBlock(comp, orig);
+	return orig.slice(0, decomLen);
+}
+function showDetails(){
+	var txt = document.getElementById('drop_zone').value;
+	try {
+		var oSearch = JSON.parse(txt);
+	} catch (err) {
+		console.log('Not reading data due to failure parsing JSON: ' + err.toString());
+		return;
+	}
+	var sEngines = oSearch.engines; // Array of objects
+	var sOneClicks = [];
+	for (var i=0; i<sEngines.length; i++){
+		var sTemp = '00' + sEngines[i]._metaData.order;
+		var sVis = '0';
+		if (sEngines[i]._metaData.hasOwnProperty('hidden')){
+			if (sEngines[i]._metaData.hidden === true) sVis = '1';
+		}
+		sOneClicks.push(sVis + '|' + sTemp.substr(-2) + '|' + sEngines[i]._name + '|' + sEngines[i]._shortName + '|' + sEngines[i]._loadPath);
+	}
+	sOneClicks.sort();
+	var out = document.getElementById('output');
+	var strOut = '<h2>Overview of Data From the File</h2>\n<h3>Default Search Engine</h3>\n<p>' + oSearch.metaData.searchDefault + '</p>\n<h3>One-Click Search Engines</h3>\n' +
+		'<table border="1" cellspacing="0" cellpadding="3"><thead><th>Search Engine Name</th><th>Unique Short Name</th><th>Source (_loadPath)</th></thead>\n<tbody>';
+	var sHid = '';
+	for (i=0; i<sOneClicks.length; i++){
+		if (sOneClicks[i].split('|')[0] === '0') strOut += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4].replace('jar:[app]/omni.ja!browser/', '{built-in} ') + '</td></tr>\n';
+		if (sOneClicks[i].split('|')[0] === '1') sHid += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4].replace('jar:[app]/omni.ja!browser/', '{built-in} ') + '</td></tr>\n';
+	}
+	out.innerHTML = strOut + '</tbody></table>\n';
+	if (sHid.length > 0) {
+		out.insertAdjacentHTML('beforeend', '<h3>Removed Default Search Engines</h3>\n<table border="1" cellspacing="0" cellpadding="3"><thead><th>Search Engine Name</th><th>Unique Short Name</th><th>Source (_loadPath)</th></thead>\n<tbody>' + sHid + '</tbody></table>\n');
+	}
+}
+function SaveJSON(){
+	// Check the JSON
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.length === 0 || txt.indexOf('{') === -1){
+		alert('Contents of the box do not look like JSON');
+		return;
+	}
+	try {
+		oSearch = JSON.parse(txt);
+		// Make blob and trigger save dialog
+		saveAs(
+			new Blob(
+				  [JSON.stringify(oSearch)]
+				, {type: 'application/json;charset=UTF-8'}
+			), 'search_extracted.json'
+		);
+	} catch (err) {
+		alert('Not saving due to failure parsing JSON: ' + err.toString());
+	}
+
+}
+// copied/adapted from https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
+function drop_handler(ev) {
+	ev.preventDefault();
+	// If dropped items aren't files, reject them
+	var dt = ev.dataTransfer;
+	if (dt.items) {
+		// Use DataTransferItemList interface to access the file(s) (break after first file opened)
+		for (var i=0; i < dt.items.length; i++) {
+			if (dt.items[i].kind == "file") {
+				readfile(dt.items[i].getAsFile());
+				document.getElementById('btnJSON').removeAttribute('disabled');
+				window.setTimeout(showDetails, 1500);
+				break;
+			}
+		}
+		} else { // ** NOT TESTED **
+		// Use DataTransfer interface to access the file(s)  (break after first file opened)
+		for (var i=0; i < dt.files.length; i++) {
+			readfile(dt.files[i]); 
+			document.getElementById('btnJSON').removeAttribute('disabled');
+			window.setTimeout(showDetails, 1500);
+			break;
+		}  
+	}
+}
+function dragover_handler(ev) {
+  console.log("dragOver");
+  // Prevent default select and drag behavior
+  ev.preventDefault();
+}
+function dragend_handler(ev) {
+  console.log("dragEnd");
+  // Remove all of the drag data
+  var dt = ev.dataTransfer;
+  if (dt.items) {
+    // Use DataTransferItemList interface to remove the drag data
+    for (var i = 0; i < dt.items.length; i++) {
+      dt.items.remove(i);
+    }
+  } else {
+    // Use DataTransfer interface to remove the drag data
+    ev.dataTransfer.clearData();
+  }
+}
+function loadFile(inp){
+	if (inp.files.length == 0) return;
+	if (inp.files.length > 1){
+		inp.insertAdjacentHTML('afterend', '<br><em>First file used</em>');
+	}
+	readfile(inp.files[0]);
+	document.getElementById('btnJSON').removeAttribute('disabled');
+	window.setTimeout(showDetails, 1500);
+}
+</script>
+<script type="text/javascript" src="ffu.js"></script>
+<script type="text/javascript" src="FileSaver.min.js"></script>
+<script type="text/javascript" src="lz4.js"></script>
+<style>
+#output {border-top:2px solid #000; font-family:sans-serif;}
+#output:not(:empty) {border-bottom:2px solid #000;}
+#output table {margin-bottom: 30px;}
+@media screen { #output {padding-left:0.5in} }
+</style>
+</body>
+</html>

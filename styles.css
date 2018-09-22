@@ -1,0 +1,156 @@
+header h1 {
+	margin: 0;
+}
+header p {
+	margin-top: 0;
+	font-style: italic;
+	font-size: 0.8em;
+}
+article ul li {
+	margin-bottom: 0.75em;
+}
+#logo {
+	font-weight: bold;
+	margin: 0 1em;
+}
+.codeblock {
+	font-size: 14px;
+	margin-left: 18px;
+	border: 1px solid #ccc;
+	padding: 4px 8px;
+}
+#uploaddiv {
+	position:relative;
+}
+#uploaddiv > textarea, #uploaddiv > div {
+	height: 160px;
+	margin: 0;
+	border: 2px solid #000;
+}
+@media screen {
+	html, body {
+		margin: 0;
+		background-color: #f6fcf9;
+	}
+	body {
+		font-family: "Open Sans", Arial, Helvetica, sans-serif;
+		font-size: 18px;
+	}
+	header, article, footer {
+		margin: 1em;
+	}
+	header {
+		padding-top: 55px;
+	}
+	footer {
+		margin-bottom: 0;
+		padding-bottom: 1em;
+	}
+	nav {
+		background-color: #bfd;
+		position: fixed;
+		z-index: 100;
+		width: 100%;
+		top: 0;
+		height: 60px;
+	}
+	nav ul {
+		list-style-type: none;
+		margin: 0;
+		padding: 14px 0;
+		white-space: nowrap;
+	}	
+	nav li {
+		display: inline-block;
+		padding: 0 2px;
+	}
+	nav a {
+		display: inline-block;
+		text-decoration: none;
+		color: #000;
+		padding: 0 10px;
+		border: 1px solid transparent;
+	}
+	nav a:hover {
+		border-color: #000;
+	}
+	#current {
+		border: 1px solid transparent;
+		border-bottom: 2px solid #00f;
+		margin: 0 10px;
+	}
+	article {
+		position: relative;
+	}
+	#main {
+		max-width: 1024px;
+	}
+	#rightnav {
+		position: absolute;
+		right: 1em;
+		top: 14px;
+	}
+	footer p {
+		font-size: 0.75em;
+	}
+	article p img {
+		margin-left: 18px;
+		max-width: 900px;
+	}
+	.btnpermlink {
+		margin-left: 20px;
+		opacity: 0.75;
+		border: 2px solid transparent;
+		background-color: transparent;
+		padding: 2px;
+		display: inline-block;
+		border-radius: 12px;
+		transition: border-color 250ms ease-in-out;
+	}
+	.btnpermlink:hover {
+		opacity: 1.0;
+		border-color: #bdf;
+		transition: border-color 250ms ease-in-out;
+	}
+	.btnpermlink img {
+		display: block;
+	}
+	#vidframes {
+		width:640px;
+		padding: 8px 8px 4px 8px;
+		margin-left:auto; margin-right:auto;
+		color: #000;
+		background-color: #bdf;
+	}
+	#vidtabs span {
+		display: inline-block;
+		width: 90px;
+		padding: 2px 6px;
+		background-color: #ddd;
+		text-align: center;
+		border-radius: 8px 8px 0 0;
+		cursor: pointer;
+	}
+	#vidtabs span:not(.current):hover {
+		background-color: #eee;
+	}
+	#vidtabs span.current {
+		background-color: #fff;
+		text-decoration: underline;
+		cursor: unset;
+	}
+	#drop_zone::placeholder {
+		font-size: 18px;
+		font-family: "Open Sans", Arial, Helvetica, sans-serif;
+		line-height: 5em;
+		text-align: center;
+	}
+}
+@media print {
+	nav, .btnpermlink, .noprint {
+		display: none;
+	}
+	article p img {
+		max-width: 900px;
+	}
+}
