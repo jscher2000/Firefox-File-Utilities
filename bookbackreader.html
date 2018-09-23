@@ -32,12 +32,12 @@
 <p><em>Note: To try a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
 <h2>Step 2: Convert / Repair / Save Your Bookmarks</h2>
 <p><strong>JSON "Backup" Format:</strong> <label><input type="checkbox" id="chkAnnos">&nbsp;Clear Descriptions</label> <button onclick="SaveJSON()" id="btnSave" disabled>Save JSON</button><br><button onclick="CheckJSON()" id="btnCheckJ" disabled>Check/Repair JSON</button> <span id="spanCheck"><em>For files Firefox cannot restore</em></span></p>
-<p><strong>HTML "Export" Format: </strong> <label><input type="checkbox" id="chkDesc" onclick="adjOnly()" checked>&nbsp;Include Descriptions</label> <label><input type="checkbox" id="chkDescOnly">&nbsp;<em>Only</em> Bookmarks with Descriptions</label> <br><label><input type="checkbox" id="chkIndent" checked>&nbsp;Add indenting (for easier reading)</label> <button onclick="SaveHTML()" id="btnExport" disabled>Export HTML</button><br>
+<p><strong>HTML "Export" Format: </strong> <label><input type="checkbox" id="chkDesc" onclick="adjOnly()" checked>&nbsp;Include Descriptions</label> <label><input type="checkbox" id="chkDescOnly">&nbsp;<em>Only</em> Bookmarks with Descriptions</label> (<label><input type="checkbox" id="chkUnstructured">&nbsp;Bookmark Notes importable)</label> <br><label><input type="checkbox" id="chkIndent" checked>&nbsp;Add indenting (for easier reading)</label> <button onclick="SaveHTML()" id="btnExport" disabled>Export HTML</button><br>
 <em>Currently does not embed icon data.</em></p>
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-09-11.</p>
+<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-09-22.</p>
 </footer>
 <script type="text/javascript">
 // Compatibility check
@@ -85,7 +85,7 @@ function SaveJSON(){
 		alert('Not saving due to failure parsing JSON: ' + err.toString());
 	}
 }
-var out = '', do_desc = false, desc_only = false;
+var out = '', do_desc = false, desc_only = false, unstructured = false;
 var runtime = Date.now().toString().substr(0, 10);
 function SaveHTML(){
 	// Check the JSON
@@ -94,7 +94,8 @@ function SaveHTML(){
 		// Make blob and trigger save dialog
 		out = '';
 		if (document.getElementById('chkDesc').checked) do_desc = true;
-		if (do_desc && document.getElementById('chkDescOnly').checked) desc_only = true;
+		if (document.getElementById('chkDescOnly').checked) {do_desc = true; desc_only = true;}
+		if (document.getElementById('chkUnstructured').checked) {do_desc = true; desc_only = true; unstructured = true;}
 		for (var i=0; i<oBmks.children.length; i++){
 			if (oBmks.children[i].hasOwnProperty('children')){
 				if (i===0) convert(oBmks.children[i], '');
@@ -183,24 +184,26 @@ function convert(oPlace, sp){
 			}
 		} else { // Regular folder
 			var root = oPlace.root;
-			if (!root || root.length === 0){
-				out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '">' + escapeHtmlEntities(pTitle) + '</H3>\n';
-				if (annos && do_desc) out += convAnnos(annos, sp);
-			} else {
-				// Omit this line for root == 'bookmarksMenuFolder'
-				if (root == 'toolbarFolder'){
-					out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '" personal_toolbar_folder="true">' + escapeHtmlEntities(pTitle) + '</H3>\n';
-				}
-				if (root == 'unfiledBookmarksFolder'){
-					out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '" unfiled_bookmarks_folder="true">' + escapeHtmlEntities(pTitle) + '</H3>\n';
-				}
-				// Are Mobile Bookmarks a thing??
-				if (root == 'mobileFolder'){
+			if (unstructured != true) { 
+				if (!root || root.length === 0){
 					out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					if (annos && do_desc) out += convAnnos(annos, sp);
+				} else {
+					// Omit this line for root == 'bookmarksMenuFolder'
+					if (root == 'toolbarFolder'){
+						out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '" personal_toolbar_folder="true">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					}
+					if (root == 'unfiledBookmarksFolder'){
+						out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '" unfiled_bookmarks_folder="true">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					}
+					// Are Mobile Bookmarks a thing??
+					if (root == 'mobileFolder'){
+						out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					}
 				}
-			}
-			if (!root || root.length === 0 || root != 'bookmarksMenuFolder'){
-				out +=  sp + '<DL><p>\n';
+				if (!root || root.length === 0 || root != 'bookmarksMenuFolder'){
+					out +=  sp + '<DL><p>\n';
+				}
 			}
 			var arrChildren = oPlace.children;
 			if (arrChildren){
@@ -208,8 +211,10 @@ function convert(oPlace, sp){
 					convert(arrChildren[i], sp + '    ');
 				}
 			}
-			if (!root || root.length === 0 || root != 'bookmarksMenuFolder'){
-				out +=  sp + '</DL><p>\n';
+			if (unstructured != true) { 
+				if (!root || root.length === 0 || root != 'bookmarksMenuFolder'){
+					out +=  sp + '</DL><p>\n';
+				}
 			}
 		}
 	}
