@@ -37,7 +37,7 @@
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-09-22.</p>
+<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-10-20.</p>
 </footer>
 <script type="text/javascript">
 // Compatibility check
@@ -151,6 +151,7 @@ function convert(oPlace, sp){
 	var annos = oPlace.annos;
 	if (pType == 'text/x-moz-place-container'){
 		// This is a folder or live bookmark
+		if (pTitle.length === 0) pTitle = 'Untitled';
 		if (annos && JSON.stringify(annos).indexOf('"name":"livemark/feedURI"') > -1){ // Live bookmark
 			var strTemp = '<DT><A';
 			for (var k=0; k<annos.length; k++){
@@ -239,6 +240,7 @@ function convert(oPlace, sp){
 		if (pTags && pTags.length > 0){
 			extras += ' TAGS="' + escapeHtmlEntities(pTags) + '"';
 		}
+		if (oPlace.title.length === 0) pTitle = '[' + oPlace.uri + ']';
 		if (desc_only == false){
 			out += sp + '<DT><A HREF="' + pURI + '" ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>\n';
 			if (annos && do_desc) out += convAnnos(annos, sp);
