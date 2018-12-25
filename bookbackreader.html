@@ -34,10 +34,10 @@
 <p><strong>JSON "Backup" Format:</strong> <label><input type="checkbox" id="chkAnnos">&nbsp;Clear Descriptions</label> <button onclick="SaveJSON()" id="btnSave" disabled>Save JSON</button><br><button onclick="CheckJSON()" id="btnCheckJ" disabled>Check/Repair JSON</button> <span id="spanCheck"><em>For files Firefox cannot restore</em></span></p>
 <p><strong>HTML "Export" Format: </strong> <label><input type="checkbox" id="chkDesc" onclick="adjOnly()" checked>&nbsp;Include Descriptions</label> <label><input type="checkbox" id="chkDescOnly">&nbsp;<em>Only</em> Bookmarks with Descriptions</label> (<label><input type="checkbox" id="chkUnstructured">&nbsp;Bookmark Notes importable)</label> <br><label><input type="checkbox" id="chkIndent" checked>&nbsp;Add indenting (for easier reading)</label> <label><input type="checkbox" id="chkShowTags">&nbsp;Make Tags visible</label> <button onclick="SaveHTML()" id="btnExport" disabled>Export HTML</button><br>
 <em>Currently does not embed icon data.</em></p>
-</div><!-- #main -->
+<p><strong>Extract Feeds (backups from Firefox 63 and earlier): </strong><button onclick="getRSS()" id="btnFeeds" disabled>Find Feeds</button></p><div id="feedout" style="display:none; background-color: #fff; border: 1px solid #ccc; padding:0 8px; height:300px; overflow-y:auto;"></div> <button onclick="SaveFeeds()" id="btnSaveFeeds" disabled>Save Feeds List</button> (plain text format)<textarea id="opmlout" style="display:none; width:100%; height:300px; margin-top:1em;"></textarea> <button onclick="SaveOPML()" id="btnOPML" disabled>Export OPML</button> (please also save the list format just in case)</div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-12-06. (<a href="bookbackreader_20181020.html">Previous version</a>)</p>
+<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-12-25. (<a href="bookbackreader_20181020.html">Oct. 20 version</a>)</p>
 </footer>
 <script type="text/javascript">
 // Compatibility check
@@ -58,6 +58,9 @@ document.getElementById('drop_zone').value = '';
 document.getElementById('btnSave').setAttribute('disabled', 'disabled');
 document.getElementById('btnExport').setAttribute('disabled', 'disabled');
 document.getElementById('btnCheckJ').setAttribute('disabled', 'disabled');
+document.getElementById('btnFeeds').setAttribute('disabled', 'disabled');
+document.getElementById('btnSaveFeeds').setAttribute('disabled', 'disabled');
+document.getElementById('btnOPML').setAttribute('disabled', 'disabled');
 // Functions used in the page
 var oBmks;
 function SaveJSON(){
@@ -270,6 +273,105 @@ function convAnnos(arrAnnos, sp){
 	}
 	return descTags;
 }
+var feedhtml, opmltext;
+function getRSS(){
+	try {
+		oBmks = JSON.parse(document.getElementById('drop_zone').value);
+	} catch (err) {
+		window.alert('Cannot extract because the text does not appear to be valid JSON-format data. Sorry.');
+		return;
+	}
+	// Extract livemark annotations and add to visible list and hidden XML block
+	feedhtml = '';
+	opmltext = '';
+	for (var i=0; i<oBmks.children.length; i++){
+		if (oBmks.children[i].hasOwnProperty('children')){
+			addFeed(oBmks.children[i]);
+		}
+	}
+	if (feedhtml.length > 0){
+		document.getElementById('feedout').innerHTML = feedhtml;
+		document.getElementById('opmlout').value = '<?xml version="1.0"?>\n<opml version="1.0"><head><title>Firefox Live Bookmarks</title></head>' +
+			'<body>\n' + opmltext + '</body></opml>';
+		// Show output
+		document.getElementById('feedout').style.display = 'block';
+		document.getElementById('opmlout').style.display = 'block';
+		// Enable buttons
+		document.getElementById('btnSaveFeeds').removeAttribute('disabled');
+		document.getElementById('btnOPML').removeAttribute('disabled');
+	} else {
+		window.alert('No Live Bookmarks found in the JSON code, sorry.');
+	}
+}
+function addFeed(oPlace){
+	var pType = oPlace.type;
+	var pTitle = oPlace.title;
+	var annos = oPlace.annos;
+	if (pType == 'text/x-moz-place-container'){
+		// This is a folder or live bookmark
+		if (pTitle.length === 0) pTitle = 'Untitled';
+		if (annos && JSON.stringify(annos).indexOf('"name":"livemark/feedURI"') > -1){ // Live bookmark
+			for (var k=0; k<annos.length; k++){
+				if (annos[k].name == 'livemark/feedURI') {
+					var strXml = annos[k].value; // .replace(/"/g, '%22') + '"'
+				}
+				if (annos[k].name == 'livemark/siteURI') {
+					var strUrl = annos[k].value;
+				}
+			}
+			feedhtml += '<strong>' + pTitle + '</strong><br>\nRSS: ' + strXml + '<br>\nSite: <a href="' + 
+				strUrl.replace(/"/g, '%22') + '" target="_blank">' + strUrl + '</a><br>\n<br>\n';
+			opmltext += '<outline type="rss" title="' + pTitle + '" text="' + pTitle + '" xmlUrl="' + strXml + '" htmlUrl="' + strUrl + '"/>\n';
+		} else { // Regular folder
+			var arrChildren = oPlace.children;
+			if (arrChildren){
+				for (var i=0; i<arrChildren.length; i++){
+					addFeed(arrChildren[i]);
+				}
+			}
+		}
+	}
+}
+function SaveOPML(){
+	// Check that we have output
+	var xml = document.getElementById('opmlout').value;
+	if (xml.length > 0){
+		// Make blob and trigger save dialog
+		var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+		var fnend = '_extracted-livemarks.opml';
+		if (fn.lastIndexOf('_') > -1) var fnout = fn.substr(0, fn.lastIndexOf('_')) + fnend;
+		else fnout = fn + fnend;
+		saveAs(
+			new Blob(
+				  [xml]
+				, {type: 'application/xml;charset=UTF-8'}
+			), fnout
+		);		
+	} else {
+		window.alert('The OPML text seems to be missing, sorry.');
+		return;
+	}
+}
+function SaveFeeds(){
+	// Check that we have output
+	var list = document.getElementById('feedout').textContent;
+	if (list.length > 0){
+		// Make blob and trigger save dialog
+		var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+		var fnend = '_extracted-livemarks.txt';
+		if (fn.lastIndexOf('_') > -1) var fnout = fn.substr(0, fn.lastIndexOf('_')) + fnend;
+		else fnout = fn + fnend;
+		saveAs(
+			new Blob(
+				  [list]
+				, {type: 'text/plain;charset=UTF-8'}
+			), fnout
+		);		
+	} else {
+		window.alert('The feed list seems to be missing, sorry.');
+		return;
+	}
+}
 function escapeHtmlEntities(aText) {
 	// from resource://gre/modules/BookmarkHTMLUtils.jsm
 	return (aText || "").replace(/&/g, "&amp;")
@@ -299,6 +401,7 @@ function readfile(f){
 			document.getElementById('btnSave').removeAttribute('disabled');
 			document.getElementById('btnExport').removeAttribute('disabled');
 			document.getElementById('btnCheckJ').removeAttribute('disabled');
+			document.getElementById('btnFeeds').removeAttribute('disabled');
 
 		} catch (err) {
 			document.getElementById('fileinfo').insertAdjacentHTML('beforeend', ' <span>(failed JSON parsing: ' + err.toString() + ')</span>');
