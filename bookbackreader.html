@@ -32,12 +32,12 @@
 <p><em>Note: To try a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
 <h2>Step 2: Convert / Repair / Save Your Bookmarks</h2>
 <p><strong>JSON "Backup" Format:</strong> <label><input type="checkbox" id="chkAnnos">&nbsp;Clear Descriptions</label> <button onclick="SaveJSON()" id="btnSave" disabled>Save JSON</button><br><button onclick="CheckJSON()" id="btnCheckJ" disabled>Check/Repair JSON</button> <span id="spanCheck"><em>For files Firefox cannot restore</em></span></p>
-<p><strong>HTML "Export" Format: </strong> <label><input type="checkbox" id="chkDesc" onclick="adjOnly()" checked>&nbsp;Include Descriptions</label> <label><input type="checkbox" id="chkDescOnly">&nbsp;<em>Only</em> Bookmarks with Descriptions</label> (<label><input type="checkbox" id="chkUnstructured">&nbsp;Bookmark Notes importable)</label> <br><label><input type="checkbox" id="chkIndent" checked>&nbsp;Add indenting (for easier reading)</label> <label><input type="checkbox" id="chkShowTags">&nbsp;Make Tags visible</label> <button onclick="SaveHTML()" id="btnExport" disabled>Export HTML</button><br>
+<p><strong>HTML "Export" Format: </strong> <label><input type="checkbox" id="chkDesc" onclick="adjOnly()" checked>&nbsp;Include Descriptions</label> <label><input type="checkbox" id="chkDescOnly">&nbsp;<em>Only</em> Bookmarks with Descriptions</label> (<label><input type="checkbox" id="chkUnstructured">&nbsp;Bookmark Notes importable)</label> <br><label><input type="checkbox" id="chkIndent" checked>&nbsp;Add indenting (for easier reading)</label> <label><input type="checkbox" id="chkShowTags">&nbsp;Make Tags visible</label> <label><input type="checkbox" id="chkShowKW">&nbsp;Make Keywords visible</label> <button onclick="SaveHTML()" id="btnExport" disabled>Export HTML</button><br>
 <em>Currently does not embed icon data.</em></p>
 <p><strong>Extract Feeds (backups from Firefox 63 and earlier): </strong><button onclick="getRSS()" id="btnFeeds" disabled>Find Feeds</button></p><div id="feedout" style="display:none; background-color: #fff; border: 1px solid #ccc; padding:0 8px; height:300px; overflow-y:auto;"></div> <button onclick="SaveFeeds()" id="btnSaveFeeds" disabled>Save Feeds List</button> (plain text format)<textarea id="opmlout" style="display:none; width:100%; height:300px; margin-top:1em;"></textarea> <button onclick="SaveOPML()" id="btnOPML" disabled>Export OPML</button> (please also save the list format just in case)</div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-12-25. (<a href="bookbackreader_20181020.html">Oct. 20 version</a>)</p>
+<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-12-25. (<a href="bookbackreader_20181020.html">Oct. 20 version</a>)</p>
 </footer>
 <script type="text/javascript">
 // Compatibility check
@@ -88,7 +88,7 @@ function SaveJSON(){
 		alert('Not saving due to failure parsing JSON: ' + err.toString());
 	}
 }
-var out = '', do_desc = false, desc_only = false, unstructured = false, showTags = false;
+var out = '', do_desc = false, desc_only = false, unstructured = false, showTags = false, showKW = false;
 var runtime = Date.now().toString().substr(0, 10);
 function SaveHTML(){
 	// Check the JSON
@@ -100,6 +100,7 @@ function SaveHTML(){
 		if (document.getElementById('chkDescOnly').checked) {do_desc = true; desc_only = true;}
 		if (document.getElementById('chkUnstructured').checked) {do_desc = true; desc_only = true; unstructured = true;}
 		if (document.getElementById('chkShowTags').checked) showTags = true;
+		if (document.getElementById('chkShowKW').checked) showKW = true;
 		for (var i=0; i<oBmks.children.length; i++){
 			if (oBmks.children[i].hasOwnProperty('children')){
 				if (i===0) convert(oBmks.children[i], '');
@@ -108,7 +109,8 @@ function SaveHTML(){
 		}
 		var strEnd = '</DL>';
 		if (document.getElementById('chkIndent').checked) strEnd += '<style>dd {white-space: pre-wrap;} dd>dl, dd>p {white-space: initial;} dl>dt>dl {margin-left: 1em; border-left: 1px solid #444; padding-left: 1em;} dt>h3[personal_toolbar_folder="true"]+dl {border-left: 3px double #090;} dt>h3[unfiled_bookmarks_folder="true"]+dl {border-left: 3px double #f00;}';
-		if (document.getElementById('chkShowTags').checked) strEnd += ' a[href] + .tags {margin-left: 8px; padding: 1px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.8em;}';
+		if (showTags) strEnd += ' .tags {margin-left: 8px; padding: 1px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.8em;}';
+		if (showKW) strEnd += ' .keyw {margin-left: 8px; padding: 1px 6px; font-family: monospace; color: #fff; background-color: #006; border-radius: 3px; font-size: 1em;}';
 		strEnd += '</style>';
 		saveAs(
 			new Blob(
@@ -186,8 +188,10 @@ function convert(oPlace, sp){
 				extras += ' TAGS="' + escapeHtmlEntities(pTags) + '"';
 			}
 			if (desc_only == false){
-				out += sp + strTemp + ' ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>\n';
-				if (showTags && pTags && pTags.length > 0) out += ' <span class="tags">' + pTags + '</span>\n';
+				out += sp + strTemp + ' ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>';
+				if (showKW && (pKeyword && pKeyword.length > 0)) out += ' <span class="keyw" title="keyword">' + escapeHtmlEntities(pKeyword) + '</span>';
+				if (showTags && (pTags && pTags.length > 0)) out += ' <span class="tags" title="tags">' + escapeHtmlEntities(pTags) + '</span>';
+				out += '\n';
 				if (do_desc) out += convAnnos(annos, sp);
 			}
 		} else { // Regular folder
@@ -249,7 +253,10 @@ function convert(oPlace, sp){
 		}
 		if (oPlace.title.length === 0) pTitle = '[' + oPlace.uri + ']';
 		if (desc_only == false){
-			out += sp + '<DT><A HREF="' + pURI + '" ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>\n';if (showTags && pTags && pTags.length > 0) out += ' <span class="tags">' + pTags + '</span>\n';
+			out += sp + '<DT><A HREF="' + pURI + '" ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>';
+			if (showKW && (pKeyword && pKeyword.length > 0)) out += ' <span class="keyw" title="keyword">' + escapeHtmlEntities(pKeyword) + '</span>';
+			if (showTags && (pTags && pTags.length > 0)) out += ' <span class="tags" title="tags">' + escapeHtmlEntities(pTags) + '</span>';
+				out += '\n';
 			if (annos && do_desc) out += convAnnos(annos, sp);
 		} else {
 			if(annos) {
