@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+<title>Firefox Extension Verification May 2019 &mdash; jeffersonscher.com</title>
+<link rel="stylesheet" href="styles.css" type="text/css">
+</head>
+<body>
+<nav>
+<ul>
+<li id="logo">Fx File Utilities</li>
+<li><a href="scrounger.html" title="Scrounge URLs from session history files">Session History</a></li>
+<li><a href="bookbackreader.html" title="Save JSON or Export HTML from bookmark backup files">Bookmark Backup</a></li>
+<li><a href="searchjson.html" title="Read out search engine details">Search Engines</a></li>
+<!-- Extensions next? -->
+</ul>
+</nav>
+<header>
+<h1>Firefox Extension Verification May 2019</h1>
+</header>
+<article>
+<div id="main">
+<p>Most extensions released before May 2019 were signed with a certificate that expired on May 4, 2019. In order for Firefox to use or install an extension with one of the old signatures, it needs a new certificate installed. This is my latest information about how to get that certificate installed as of May 14, 2019. The process is not foolproof; in some number of cases, additional steps may be needed as noted in the <a href="#trouble">Troubleshooting section</a> below.</p>
+<h2 id="currentversions">Currently Supported Versions of Firefox</h2>
+<p>Firefox 66 users can update to Firefox 66.0.5, and Firefox 60 Extended Support Release users can update to Firefox 60.6.3esr. See: <a href="https://support.mozilla.org/en-US/kb/update-firefox-latest-release" target="_blank">Update Firefox to the latest release (on Mozilla Support)</a>. If you install Firefox via a repository mananged by your Linux distribution, your update path may be different. On Android, you can update through Google Play.</p>
+<h2 id="oldversions">Other Versions of Firefox</h2>
+<p>For security reasons, it is recommended to run a current release (<a href="https://www.mozilla.org/firefox/all/" target="_blank">Regular</a>, <a href="https://www.mozilla.org/firefox/organizations/" target="_blank">ESR</a>). However, Mozilla understands that not all users are up-to-date and has built extensions to add the certificate to a range of those versions. As of this writing, those are not yet available on the Add-ons site; they are still in QA. You can install the current versions from Bugzilla, Mozilla's bug tracking system, to test them out.</p>
+<p id="explainer" style="display:none">Click the heading(s) for the version(s) you need to fix, and the details should appear:</p>
+<h3 dtlhdr>Firefox 61 - 65</h3>
+<div>
+<p>The hotfix extension can be found on the Add-ons site: <a href="https://addons.mozilla.org/firefox/addon/disabled-add-on-fix-61-65/" target="_blank">Disabled Add-on Fix for Firefox 61 - 65 by Mozilla</a>. After installation, the extension should immediately add the necessary certificate and remove the verification error from validly signed extensions.</p>
+</div>
+<h3 dtlhdr>Firefox 57 - 60 (not including Firefox 60 ESR)</h3>
+<div>
+<p>The hotfix extension can be found on the Add-ons site: <a href="https://addons.mozilla.org/firefox/addon/disabled-add-on-fix-57-60/" target="_blank">Disabled Add-on Fix for Firefox 57 - 60 by Mozilla</a>. After installation, the extension should immediately add the necessary certificate and remove the verification error from validly signed extensions.</p>
+</div>
+<h3 dtlhdr>Firefox 47 - 56</h3>
+<div>
+<p>The hotfix extension can be found on the Add-ons site: <a href="https://addons.mozilla.org/firefox/addon/disabled-add-on-fix-52-56/" target="_blank">Disabled Add-on Fix for Firefox 47 - 56 by Mozilla</a>. After installation, the extension should immediately add the necessary certificate and remove the verification error from validly signed extensions.</p>
+</div>
+<h3 dtlhdr>Manual Import Method</h3>
+<div>
+<p>If a hotfix is not available for your version, you really should update!! The workaround for earlier versions of Firefox, or if the hotfix won't run, continues to be importing the certificate manually, and then triggering a signature reverification.</p>
+<p><strong>Step #1: Download the certificate.</strong> You can download the file from one of Mozilla's development servers:<br><a href="https://hg.mozilla.org/releases/mozilla-release/raw-file/tip/security/apps/addons-public-intermediate.crt">https://hg.mozilla.org/releases/mozilla-release/raw-file/tip/security/apps/addons-public-intermediate.crt</a>.</p>
+<p><strong>Step #2: Import the certificate.</strong> You do this on the Options/Preferences page. You can open that using any of these methods:</p>
+<ul>
+  <li> Windows: "3-bar" menu button (or Tools menu) &gt; Options</li>
+  <li> Mac: "3-bar" menu button (or Firefox menu) &gt; Preferences</li>
+  <li> Linux: "3-bar" menu button (or Edit menu) &gt; Preferences</li>
+  <li> Any system: type or paste <strong>about:preferences</strong> into the address bar and press Enter/Return to load it</li>
+</ul>
+<p>In the left column, click <strong>Advanced</strong>, then on the right side click <strong>Certificates</strong>. You should see a <strong>View Certificates</strong> button:</p>
+<p><img src="img/fx52-options-advanced-certificates.png"></p>
+<p>Click the <strong>View Certificates</strong> button to launch the Certificate Manager. In the Certificate Manager, click the <strong>Authorities</strong> tab, and you should see an <strong>Import</strong> button:</p>
+<p><img src="img/fx52-manage-certificates-authorities.png"></p>
+<p>Click the <strong>Import</strong> button and point Firefox to the .crt file you downloaded and Open that. Then Firefox should present a dialog with choices for the certificate. Do not check any of the boxes, simply click the OK button.</p>
+<p><img src="img/fx52-import-certificate-trust-settings.png"></p>
+<p>After importing, the certificate should appear in the Authorities list under Mozilla corporation. You can click OK to close the Certificate Manager.</p>
+<p><img src="img/fx52-imported-certificate-in-authorities-list.png"></p>
+<p><strong>Step #3: Clear the timestamp for the last signature verification.</strong> This will set up Firefox up to re-check your extensions much sooner than it otherwise would check.</p>
+<p>(A) In a new tab, type or paste <strong>about:config</strong> in the address bar and press Enter/Return. Click the button promising to be careful or accepting the risk.</p>
+<p>(B) In the search box above the list, type or paste <strong>xpi-</strong> and pause while the list is filtered</p>
+<p>(C) Right-click the <strong>app.update.lastUpdateTime.xpi-signature-verification</strong> preference and click Reset on the context menu</p>
+<p>This screenshot illustrates before and after:</p>
+<p><img src="img/fx52-reset-xpi-signature-verification-preference.png"></p>
+<p><strong>Step #4: Exit/Quit Firefox and start it up again.</strong> Within about a minute, Firefox should perform a fresh signature verification with the new certificate and re-enable all of the validly signed extensions.</p>
+</div>
+<h2 id="trouble">Troubleshooting</h2>
+<p>The latest hotfixes should not suffer from the problems of the first one released over the weekend of May 4-5. However, there still could be issues in some cases.</p>
+<h3>New Version or Hotfix Does Not Install Certificate</h3>
+<p>Please refer to this thread on Mozilla Support for suggestions: <a href="https://support.mozilla.org/questions/1258798" target="_blank">Version 66.0.5 installed but still won't verify and install add-ons and themes</a>.</p>
+<h3>Some Extensions Were Re-Enabled, Some Were Not</h3>
+<p>You can check for extension updates.</p>
+<h3>Hotfix Suddenly Stopped Working</h3>
+<p>Firefox saves the new certificate into a specific file in your currently active profile folder (cert8.db or cert9.db). If that file is removed, or if you have more than one profile, the fix will need to be applied again.</p>
+</div>
+</article>
+
+<footer>
+<p>Copyright &copy; 2019 Jefferson Scher. All Rights Reserved.</p>
+</footer>
+<script type="text/javascript" src="ffu.js"></script>
+<!-- Code to add open/close functionality added 5/12/2019 so page is easier to scan down.
+     Requires <h3 dtlhdr>(header)</h3><div>(details)</div> layout -->
+<script type="text/javascript">
+function toggleDetails(el){
+	if (!('nodeName' in el)) el = el.target; // clicked element
+	if (el.nodeName != 'H3'){ // clicked triangle?
+		if (typeof el.closest === 'function'){ el = el.closest('h3'); }
+		else { el = el.parentNode; } // old browsers
+	}
+	var dtls = el.nextElementSibling; // details div
+	if (dtls.style.display == 'none'){
+		dtls.style.display = 'block';
+		dtls.style.paddingLeft = '1.5em';
+		el.querySelector('.openclosebtn').innerHTML = '&#9660;';
+		el.setAttribute('title', 'Close Details');
+	} else {
+		dtls.style.display = 'none';
+		el.querySelector('.openclosebtn').innerHTML = '&#9658;';
+		el.setAttribute('title', 'Open Details');
+	}
+}
+var elsdtl = document.querySelectorAll('h3[dtlhdr]');
+for (var i=0; i<elsdtl.length; i++){
+	elsdtl[i].addEventListener('click', toggleDetails, false);
+	elsdtl[i].insertAdjacentHTML('afterbegin', '<span class="openclosebtn">&#9660;</span> ');
+	elsdtl[i].setAttribute('title', 'Close Details');
+	toggleDetails(elsdtl[i]);
+}
+document.getElementById('explainer').style.display = '';
+var r = 'h3[dtlhdr]:hover {cursor:pointer; background-color: #ffa; color: #00c}';
+var s = document.createElement('style');
+s.appendChild(document.createTextNode(r));
+document.body.appendChild(s);
+</script>
+</body>
+</html>
