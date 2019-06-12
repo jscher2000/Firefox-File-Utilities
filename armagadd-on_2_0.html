@@ -22,9 +22,9 @@
 <div id="main">
 <p>Most extensions released before May 2019 were signed with a certificate that expired on May 4, 2019. In order for Firefox to use or install an extension with one of the old signatures, it needs a new certificate installed. This is my latest information about how to get that certificate installed as of May 14, 2019. The process is not foolproof; in some number of cases, additional steps may be needed as noted in the <a href="#trouble">Troubleshooting section</a> below.</p>
 <h2 id="currentversions">Currently Supported Versions of Firefox</h2>
-<p>Firefox 66 users can update to Firefox 66.0.5, and Firefox 60 Extended Support Release users can update to Firefox 60.6.3esr. See: <a href="https://support.mozilla.org/en-US/kb/update-firefox-latest-release" target="_blank">Update Firefox to the latest release (on Mozilla Support)</a>. If you install Firefox via a repository mananged by your Linux distribution, your update path may be different. On Android, you can update through Google Play.</p>
+<p>Firefox 66 users can update to Firefox 66.0.5 or later, and Firefox 60 Extended Support Release users can update to Firefox 60.6.3esr or later. See: <a href="https://support.mozilla.org/en-US/kb/update-firefox-latest-release" target="_blank">Update Firefox to the latest release (on Mozilla Support)</a>. If you install Firefox via a repository mananged by your Linux distribution, your update path may be different. On Android, you can update through Google Play.</p>
 <h2 id="oldversions">Other Versions of Firefox</h2>
-<p>For security reasons, it is recommended to run a current release (<a href="https://www.mozilla.org/firefox/all/" target="_blank">Regular</a>, <a href="https://www.mozilla.org/firefox/organizations/" target="_blank">ESR</a>). However, Mozilla understands that not all users are up-to-date and has built extensions to add the certificate to a range of those versions. As of this writing, those are not yet available on the Add-ons site; they are still in QA. You can install the current versions from Bugzilla, Mozilla's bug tracking system, to test them out.</p>
+<p>For security reasons, it is recommended to run a current release (<a href="https://www.mozilla.org/firefox/all/" target="_blank">Regular</a>, <a href="https://www.mozilla.org/firefox/organizations/" target="_blank">ESR</a>). However, Mozilla understands that not all users are up-to-date and has built hotfix extensions to add the certificate to a range of those versions. You can install the hotfix for your version from the Add-ons site; it may or may not get pushed out automatically.</p>
 <p id="explainer" style="display:none">Click the heading(s) for the version(s) you need to fix, and the details should appear:</p>
 <h3 dtlhdr>Firefox 61 - 65</h3>
 <div>
@@ -49,9 +49,11 @@
   <li> Linux: "3-bar" menu button (or Edit menu) &gt; Preferences</li>
   <li> Any system: type or paste <strong>about:preferences</strong> into the address bar and press Enter/Return to load it</li>
 </ul>
-<p>In the left column, click <strong>Advanced</strong>, then on the right side click <strong>Certificates</strong>. You should see a <strong>View Certificates</strong> button:</p>
+<p><strong>Firefox 55 or earlier:</strong> In the left column, click <strong>Advanced</strong>, then on the right side click <strong>Certificates</strong>. You should see a <strong>View Certificates</strong> button:</p>
 <p><img src="img/fx52-options-advanced-certificates.png"></p>
-<p>Click the <strong>View Certificates</strong> button to launch the Certificate Manager. In the Certificate Manager, click the <strong>Authorities</strong> tab, and you should see an <strong>Import</strong> button:</p>
+<p><strong>Firefox 56 or later:</strong> Type <em>cert</em> into the tiny search box at the top of the page to summon the relevant section. You should see a <strong>View Certificates</strong> button:</p>
+<p><img src="img/fx67-options-search-cert.png"></p>
+<p>In all versions: Click the <strong>View Certificates</strong> button to launch the Certificate Manager. In the Certificate Manager, click the <strong>Authorities</strong> tab, and you should see an <strong>Import</strong> button:</p>
 <p><img src="img/fx52-manage-certificates-authorities.png"></p>
 <p>Click the <strong>Import</strong> button and point Firefox to the .crt file you downloaded and Open that. Then Firefox should present a dialog with choices for the certificate. Do not check any of the boxes, simply click the OK button.</p>
 <p><img src="img/fx52-import-certificate-trust-settings.png"></p>
