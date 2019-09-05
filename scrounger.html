@@ -36,7 +36,9 @@
 </div>
 <p><em>Note: To scrounge a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
 <h2>Step 2: Extract URLs / Save Session Links</h2>
-<p><button onclick="parsejson()" id="btnScrounge" disabled>Scrounge URLs</button> <button onclick="SaveList()" id="btnSave" disabled>Save List (HTML with links)</button> <button onclick="SaveJSON()" id="btnJSON" disabled>Save Uncompressed JSON (sessionstore.js format)</button></p>
+<p id="scrounge_options"><strong>HTML list options:</strong> <label><input type="checkbox" id="chkCTabs" checked>&nbsp;Include Closed Tabs</label> <label><input type="checkbox" id="chkCWins" checked>&nbsp;Include Closed Windows</label> <label><input type="checkbox" id="chkBFH" checked>&nbsp;Include Back-Forward History</label></p>
+<p><strong>HTML list commands:</strong> <button onclick="parsejson()" id="btnScrounge" disabled>Scrounge URLs</button> <button onclick="SaveList()" id="btnSave" disabled>Save List</button></p>
+<p><strong>JSON file:</strong> <button onclick="SaveJSON()" id="btnJSON" disabled>Save Uncompressed JSON (sessionstore.js format)</button> <button onclick="SaveJSONEmbed()" id="btnEmbed" disabled>Save Embedded Session (first found only)</button></p>
 <div id="output" style="border-top:2px solid #000;">
 <style type="text/css">
 .bhtoggle {cursor:pointer;}
@@ -52,12 +54,12 @@ function toggleBH(el){
 	else tgtdiv.style.display = '';
 }
 </script>
-<p class="attrib">Extracted using <a href="https://www.jeffersonscher.com/res/scrounger.html">https://www.jeffersonscher.com/res/scrounger.html</a></p>
+<p class="attrib">Extracted using <a href="https://www.jeffersonscher.com/ffu/scrounger.html">https://www.jeffersonscher.com/ffu/scrounger.html</a></p>
 </div>
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2018-12-26. (<a href="scrounger_20180826.html">Previous Version</a>) (<a href="/res/scrounger_json.html">Original Scrounger</a>)</p>
+<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2019-07-21. (<a href="scrounger_20180826.html">Older Logic</a>)</p>
 </footer>
 <script type="text/javascript">
 // Compatibility check
@@ -78,8 +80,8 @@ document.getElementById('drop_zone').value = '';
 document.getElementById('btnScrounge').setAttribute('disabled', 'disabled');
 document.getElementById('btnSave').setAttribute('disabled', 'disabled');
 document.getElementById('btnJSON').setAttribute('disabled', 'disabled');
+document.getElementById('btnEmbed').setAttribute('disabled', 'disabled');
 // Functions used in the page
-var try_beta = true;
 function parsejson(){
 	if (document.getElementById('scrounged')){
 		if(!confirm('Remove previous list of windows and tabs now?')) return;
@@ -100,9 +102,9 @@ function parsejson(){
 				console.log(err);
 				oSess = null;
 			}
-			if (try_beta == true && oSess != null) {
+			if (oSess != null) {
 				console.log('Calling buildListJSON()');
-				buildListJSON(oSess);
+				buildListJSON(oSess, true);
 			} else {
 				console.log('Calling buildList()');
 				buildList(txt);
@@ -120,20 +122,27 @@ var cleanQuotes = function(string){
 	return string.replace(/\\"/g, '"');
 }
 var outJ = new Array();
-function buildListJSON(obj){
-	var finfo = document.querySelectorAll('#fileinfo span');
-	document.getElementById('output').insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session History</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n</div>');
-	var winds, tabs, taburls, i, j, k, last, page=0, tabcount=0;
+function buildListJSON(obj, outer){
+	if (outer === true){
+		var finfo = document.querySelectorAll('#fileinfo span');
+		document.getElementById('output').insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session History</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n</div>');
+	} else {
+		outJ.push('<div style="margin-left:2.25em; border-left: 3px double green; padding-left: 12px;">\n<h1><em>Embedded Session</em></h1>');
+	}
+	var blnCTabs = document.getElementById('chkCTabs').checked;
+	var blnCWins = document.getElementById('chkCWins').checked;
+	var blnBFH = document.getElementById('chkBFH').checked;
+	var winds, tabs, taburls, i, j, k, last, eSess, page=0, tabcount=0;
 	// Current session open windows array
 	winds = obj.windows;
 	for (i=0; i < winds.length; i++) {
-		if (i==0) outJ.push('<div>\n<h2>Open Windows</h2>');
-		outJ.push('<h3 style=\'border-bottom:1px solid #000\'>Open Window ' + (i+1) + '</h3>\n<div style=\'margin-left:2.25em\'>');
+		if (i==0) outJ.push('<div>\n  <h2>Open Windows</h2>');
+		outJ.push('  <h3 style=\'border-bottom:1px solid #000\'>Open Window ' + (i+1) + '</h3>\n  <div style=\'margin-left:2.25em\'>');
 		// Current window open tabs array
 		tabs = winds[i].tabs;
 		for (j=0; j < tabs.length; j++) {
 			//console.log('Window '+ (i+1) + ' Tab ' + (j+1));
-			outJ.push('<h4>Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>');
+			outJ.push('    <h4>Tab ' + (j+1) + '</h4>\n    <div class=\'urllist\'>');
 			tabcount++;
 			// Current tab back-forward URLs array
 			taburls = tabs[j].entries.slice();
@@ -143,48 +152,69 @@ function buildListJSON(obj){
 			last[0]['last'] = tabs[j].lastAccessed;
 			pushentry(last[0]);
 			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
-					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
+			if (blnBFH){
+				// Output other pages, if any
+				if (taburls.length > 0){
+					taburls.reverse();
+					for (k=0; k<taburls.length; k++) {
+						if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+						pushentry(taburls[k]);
+						page++;
+						if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+					}
 				}
 			}
-			outJ.push('</div>');
+			outJ.push('    </div><!--End Tab-->');
+			// Got an embedded session? iterate!
+			if (last[0].url === 'about:sessionrestore'){
+				try {
+					eSess = tabs[j].formdata.id.sessionData;
+					if (eSess) buildListJSON(eSess, false);
+				} catch(err){}
+			}
 		}
-		outJ.push('</div>');
+		outJ.push('  </div><!--End Open Tabs-->');
 		// Current window closed tabs array
 		tabs = winds[i]._closedTabs;
 		for (j=0; j < tabs.length; j++) {
-			if (j==0) outJ.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
-			outJ.push('<h4>Closed Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>'); 
-			// Current tab back-forward URLs array
-			taburls = tabs[j].state.entries.slice();
-			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
-			// Output indexed page
-			last = taburls.splice(tabs[j].state.index - 1, 1);
-			last[0]['last'] = tabs[j].state.lastAccessed;
-			pushentry(last[0]);
-			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
-					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
+			if (j==0) outJ.push('  <div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+			if (blnCTabs){
+				outJ.push('    <h4>Closed Tab ' + (j+1) + '</h4>\n    <div class=\'urllist\'>'); 
+				// Current tab back-forward URLs array
+				taburls = tabs[j].state.entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].state.index - 1, 1);
+				last[0]['last'] = tabs[j].state.lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
 				}
+				outJ.push('    </div><!--End Tab-->');
+				// Got an embedded session? iterate!
+				if (last[0].url === 'about:sessionrestore'){
+					try {
+						eSess = tabs[j].formdata.id.sessionData;
+						if (eSess) buildListJSON(eSess, false);
+					} catch(err){}
+				}
+			} else {
+				if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
 			}
-			outJ.push('</div>');
 		}
-		outJ.push('</div>');
+		if (tabs.length > 0) outJ.push('  </div><!--End Closed Tabs-->');
 	}
-	if (winds.length > 0) outJ.push('</div>');
-	flush();
+	if (winds.length > 0) outJ.push('</div><!--End Open Windows-->');
 	// Current session closed windows array
 	try {
 		winds = obj._closedWindows;
@@ -193,63 +223,74 @@ function buildListJSON(obj){
 	}
 	for (i=0; i < winds.length; i++) {
 		if (i==0) outJ.push('<div>\n<h2>Closed Windows</h2>');
-		outJ.push('<h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + (i+1) + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
-		// Current window open tabs array
-		tabs = winds[i].tabs;
-		for (j=0; j < tabs.length; j++) {
-			outJ.push('<h4>Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>');
-			tabcount++;
-			// Current tab back-forward URLs array
-			taburls = tabs[j].entries.slice();
-			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
-			// Output indexed page
-			last = taburls.splice(tabs[j].index - 1, 1);
-			last[0]['last'] = tabs[j].lastAccessed;
-			pushentry(last[0]);
-			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
+		if (blnCWins){
+			outJ.push('  <h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + (i+1) + '</h3>\n  <div style=\'margin-left:2.25em\'>'); 
+			// Current window open tabs array
+			tabs = winds[i].tabs;
+			for (j=0; j < tabs.length; j++) {
+				outJ.push('    <h4>Tab ' + (j+1) + '</h4>\n    <div class=\'urllist\'>');
+				tabcount++;
+				// Current tab back-forward URLs array
+				taburls = tabs[j].entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].index - 1, 1);
+				last[0]['last'] = tabs[j].lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
+				}
+				outJ.push('    </div><!--End Tab-->');
+			}
+			outJ.push('  </div><!--End Open Tabs-->');
+			// Current window closed tabs array
+			tabs = winds[i]._closedTabs;
+			for (j=0; j < tabs.length; j++) {
+				if (j==0) outJ.push('  <div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+				if (blnCTabs){
+					outJ.push('    <h4>Closed Tab ' + (j+1) + '</h4>\n    <div class=\'urllist\'>');
+					tabcount++;
+					// Current tab back-forward URLs array
+					taburls = tabs[j].state.entries.slice();
+					//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+					// Output indexed page
+					last = taburls.splice(tabs[j].state.index - 1, 1);
+					last[0]['last'] = tabs[j].state.lastAccessed;
+					pushentry(last[0]);
 					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
+					if (blnBFH){
+						// Output other pages, if any
+						if (taburls.length > 0){
+							taburls.reverse();
+							for (k=0; k<taburls.length; k++) {
+								if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+								pushentry(taburls[k]);
+								page++;
+								if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+							}
+						}
+					}
+					outJ.push('    </div><!--End Tab-->');
+				} else {
+					if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
 				}
 			}
-			outJ.push('</div>');
+			if (tabs.length > 0) outJ.push('  </div><!--End Closed Tabs-->');
+		} else {
+			if (i==0) outJ.push('<p>(Skipping ' + winds.length + ' windows)</p>');
 		}
-		outJ.push('</div>');
-		// Current window closed tabs array
-		tabs = winds[i]._closedTabs;
-		for (j=0; j < tabs.length; j++) {
-			if (j==0) outJ.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
-			outJ.push('<h4>Closed Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>');
-			tabcount++;
-			// Current tab back-forward URLs array
-			taburls = tabs[j].state.entries.slice();
-			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
-			// Output indexed page
-			last = taburls.splice(tabs[j].state.index - 1, 1);
-			last[0]['last'] = tabs[j].state.lastAccessed;
-			pushentry(last[0]);
-			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
-					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
-				}
-			}
-			outJ.push('</div>');
-		}
-		outJ.push('</div>');
 	}
-	if (winds.length > 0) outJ.push('</div>');
-	flush();
+	if (winds.length > 0) outJ.push('</div><!--End Closed Windows-->');
 	// Last session open windows array
 	try {
 		winds = obj.lastSessionState.windows;
@@ -272,14 +313,16 @@ function buildListJSON(obj){
 			last[0]['last'] = tabs[j].lastAccessed;
 			pushentry(last[0]);
 			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
-					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
+			if (blnBFH){
+				// Output other pages, if any
+				if (taburls.length > 0){
+					taburls.reverse();
+					for (k=0; k<taburls.length; k++) {
+						if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+						pushentry(taburls[k]);
+						page++;
+						if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+					}
 				}
 			}
 			outJ.push('</div>');
@@ -289,31 +332,36 @@ function buildListJSON(obj){
 		tabs = winds[i]._closedTabs;
 		for (j=0; j < tabs.length; j++) {
 			if (j==0) outJ.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
-			outJ.push('<h4>Closed Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>'); 
-			// Current tab back-forward URLs array
-			taburls = tabs[j].state.entries.slice();
-			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
-			// Output indexed page
-			last = taburls.splice(tabs[j].state.index - 1, 1);
-			last[0]['last'] = tabs[j].state.lastAccessed;
-			pushentry(last[0]);
-			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
-					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
+			if (blnCTabs){
+				outJ.push('<h4>Closed Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>'); 
+				// Current tab back-forward URLs array
+				taburls = tabs[j].state.entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].state.index - 1, 1);
+				last[0]['last'] = tabs[j].state.lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
 				}
+			} else {
+				if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
 			}
 			outJ.push('</div>');
 		}
 		outJ.push('</div>');
 	}
 	if (winds.length > 0) outJ.push('</div>');
-	flush();
 	// Last session closed windows array
 	try {
 		winds = obj.lastSessionState._closedWindows;
@@ -322,66 +370,82 @@ function buildListJSON(obj){
 	}
 	for (i=0; i < winds.length; i++) {
 		if (i==0) outJ.push('<div>\n<h2>Closed Windows</h2>');
-		outJ.push('<h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + (i+1) + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
-		// Current window open tabs array
-		tabs = winds[i].tabs;
-		for (j=0; j < tabs.length; j++) {
-			outJ.push('<h4>Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>');
-			tabcount++;
-			// Current tab back-forward URLs array
-			taburls = tabs[j].entries.slice();
-			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
-			// Output indexed page
-			last = taburls.splice(tabs[j].index - 1, 1);
-			last[0]['last'] = tabs[j].lastAccessed;
-			pushentry(last[0]);
-			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
-					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
+		if (blnCWins){
+			outJ.push('<h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + (i+1) + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
+			// Current window open tabs array
+			tabs = winds[i].tabs;
+			for (j=0; j < tabs.length; j++) {
+				outJ.push('<h4>Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>');
+				tabcount++;
+				// Current tab back-forward URLs array
+				taburls = tabs[j].entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].index - 1, 1);
+				last[0]['last'] = tabs[j].lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
 				}
+				outJ.push('</div>');
 			}
 			outJ.push('</div>');
-		}
-		outJ.push('</div>');
-		// Current window closed tabs array
-		tabs = winds[i]._closedTabs;
-		for (j=0; j < tabs.length; j++) {
-			if (j==0) outJ.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
-			outJ.push('<h4>Closed Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>');
-			tabcount++;
-			// Current tab back-forward URLs array
-			taburls = tabs[j].state.entries.slice();
-			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
-			// Output indexed page
-			last = taburls.splice(tabs[j].state.index - 1, 1);
-			last[0]['last'] = tabs[j].state.lastAccessed;
-			pushentry(last[0]);
-			page++;
-			// Output other pages, if any
-			if (taburls.length > 0){
-				taburls.reverse();
-				for (k=0; k<taburls.length; k++) {
-					if (k == 0) outJ.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
-					pushentry(taburls[k]);
+			// Current window closed tabs array
+			tabs = winds[i]._closedTabs;
+			for (j=0; j < tabs.length; j++) {
+				if (j==0) outJ.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+				if (blnCTabs){
+					outJ.push('<h4>Closed Tab ' + (j+1) + '</h4>\n<div class=\'urllist\'>');
+					tabcount++;
+					// Current tab back-forward URLs array
+					taburls = tabs[j].state.entries.slice();
+					//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+					// Output indexed page
+					last = taburls.splice(tabs[j].state.index - 1, 1);
+					last[0]['last'] = tabs[j].state.lastAccessed;
+					pushentry(last[0]);
 					page++;
-					if (k == (taburls.length-1)) outJ.push('</div></div>');
+					if (blnBFH){
+						// Output other pages, if any
+						if (taburls.length > 0){
+							taburls.reverse();
+							for (k=0; k<taburls.length; k++) {
+								if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+								pushentry(taburls[k]);
+								page++;
+								if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+							}
+						}
+					}
+				} else {
+					if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
 				}
+				outJ.push('</div>');
 			}
-			outJ.push('</div>');
+		} else {
+			if (i==0) outJ.push('<p>(Skipping ' + winds.length + ' windows)</p>');
 		}
 		outJ.push('</div>');
 	}
 	if (winds.length > 0) outJ.push('</div>');
-	flush();
-	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
-	document.getElementById('btnSave').removeAttribute('disabled');
 	console.log('buildListJSON tab count=' + tabcount + ' and page count='+page);
+	if (outer === true) {
+		flush();
+		document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+		document.getElementById('btnSave').removeAttribute('disabled');
+	} else {
+		outJ.push('<!--End Session--></div>');
+	}
 }
 function pushentry(oEntry){
 	var strURL = oEntry.url;
@@ -392,7 +456,7 @@ function pushentry(oEntry){
 		d.setUTCSeconds((oEntry.last / 1000));
 		var strCurrent = ' <span>[' + d.toLocaleString() + ']</span>';
 	} else strCurrent = '';
-	outJ.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong>' + strCurrent + '<br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+	outJ.push('        <p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong>' + strCurrent + '<br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
 }
 function flush(){
 	//console.log(outJ.join('\n'));
@@ -701,6 +765,75 @@ function SaveJSON(){
 	}
 
 }
+function SaveJSONEmbed(){
+	// Check the JSON
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.length === 0 || txt.indexOf('{') === -1){
+		alert('Contents of the box do not look like JSON');
+		return;
+	}
+	if (txt.indexOf('{"sessions":') === 0 && txt.indexOf('{"tabs":[') < 0){
+		alert('Contents of the box look like a Tab Session Manager storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('{"backupSessionStore":') === 0){
+		alert('Contents of the box look like a Session Boss storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('{"state":"{\\"tabGroups\\":') === 0){
+		alert('Contents of the box look like a OneTab storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('[SessionManager v2]') === 0){
+		txt = txt.substr(txt.indexOf('{'));
+	}
+	try {
+		var oSess = JSON.parse(txt);
+		// Iterate until we find the first embedded session
+		var winds, tabs, taburls, i, j, last, eSess = null;
+		// Current session open windows only
+		winds = oSess.windows;
+		eSessSearch:
+		for (i=0; i < winds.length; i++) {
+			// Open tabs
+			tabs = winds[i].tabs;
+			for (j=0; j < tabs.length; j++) {
+				taburls = tabs[j].entries.slice();
+				last = taburls.splice(tabs[j].index - 1, 1);
+				if (last[0].url === 'about:sessionrestore'){
+					try {
+						eSess = tabs[j].formdata.id.sessionData;
+						if (eSess) break eSessSearch;
+					} catch(err){}
+				}
+			}
+			// Closed tabs
+			tabs = winds[i]._closedTabs;
+			for (j=0; j < tabs.length; j++) {
+				taburls = tabs[j].state.entries.slice();
+				last = taburls.splice(tabs[j].state.index - 1, 1);
+				if (last[0].url === 'about:sessionrestore'){
+					try {
+						eSess = tabs[j].formdata.id.sessionData;
+						if (eSess) buildListJSON(eSess, false);
+					} catch(err){}
+				}
+			}
+		}
+		if (eSess != null){
+			// Make blob and trigger save dialog
+			var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+			saveAs(
+				new Blob(
+					  [JSON.stringify(eSess)]
+					, {type: 'application/json;charset=UTF-8'}
+				), 'sessionstore('+fn.replace(/\./g,'_')+'-embedded).json'
+			);
+		}
+	} catch (err) {
+		alert('Not saving due to failure parsing JSON: ' + err.toString());
+	}
+}
 // copied/adapted from https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
 function drop_handler(ev) {
 	ev.preventDefault();
@@ -715,15 +848,17 @@ function drop_handler(ev) {
 				readfile(dt.items[i].getAsFile());
 				document.getElementById('btnScrounge').removeAttribute('disabled');
 				document.getElementById('btnJSON').removeAttribute('disabled');
+				window.setTimeout(checkForEmbeds, 4000);
 				break;
 			}
 		}
-		} else { // ** NOT TESTED **
+	} else { // ** NOT TESTED **
 		// Use DataTransfer interface to access the file(s)  (break after first file opened)
 		for (var i=0; i < dt.files.length; i++) {
 			readfile(dt.files[i]); 
 			document.getElementById('btnScrounge').removeAttribute('disabled');
 			document.getElementById('btnJSON').removeAttribute('disabled');
+			window.setTimeout(checkForEmbeds, 4000);
 			break;
 		}  
 	}
@@ -771,6 +906,19 @@ function loadFile(inp){
 	document.getElementById('btnScrounge').removeAttribute('disabled');
 	document.getElementById('btnJSON').removeAttribute('disabled');
 }
+function checkForEmbeds(){
+	// Look for the embedded session string
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.indexOf('"formdata":{"id":{"sessionData":') > -1){
+		document.getElementById('btnEmbed').removeAttribute('disabled');
+	}
+}
+function reenableScrounge(evt){
+	if (evt.target.nodeName == 'INPUT' || evt.target.nodeName === 'LABEL'){
+		document.getElementById('btnScrounge').removeAttribute('disabled');
+	}
+}
+document.getElementById('scrounge_options').addEventListener('click', reenableScrounge, false);
 </script>
 <script type="text/javascript" src="ffu.js"></script>
 <script type="text/javascript" src="FileSaver.min.js"></script>
