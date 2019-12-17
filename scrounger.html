@@ -37,8 +37,8 @@
 <p><em>Note: To scrounge a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
 <h2>Step 2: Extract URLs / Save Session Links</h2>
 <p id="scrounge_options"><strong>HTML list options:</strong> <label><input type="checkbox" id="chkCTabs" checked>&nbsp;Include Closed Tabs</label> <label><input type="checkbox" id="chkCWins" checked>&nbsp;Include Closed Windows</label> <label><input type="checkbox" id="chkBFH" checked>&nbsp;Include Back-Forward History</label></p>
-<p><strong>HTML list commands:</strong> <button onclick="parsejson()" id="btnScrounge" disabled>Scrounge URLs</button> <button onclick="SaveList()" id="btnSave" disabled>Save List</button></p>
-<p><strong>JSON file:</strong> <button onclick="SaveJSON()" id="btnJSON" disabled>Save Uncompressed JSON (sessionstore.js format)</button> <button onclick="SaveJSONEmbed()" id="btnEmbed" disabled>Save Embedded Session (first found only)</button></p>
+<p><strong>HTML list commands:</strong> <button onclick="parsejson(false)" id="btnScrounge" disabled>Scrounge URLs</button> (<em>Fallback:</em> <button onclick="parsejson(true)" id="btnDumblist" disabled>Unstructured URL list</button>) <button onclick="SaveList()" id="btnSave" disabled>Save List</button></p>
+<p><strong>JSON file:</strong> <button onclick="SaveJSON()" id="btnJSON" disabled>Save Uncompressed JSON (sessionstore.js format)</button> <button onclick="SaveJSONEmbed()" id="btnEmbed" disabled>Save Embedded Session (first found only)</button> <button onclick="SaveJSONText()" id="btnText" disabled>Save Uncompressed JSON as text</button></p>
 <div id="output" style="border-top:2px solid #000;">
 <style type="text/css">
 .bhtoggle {cursor:pointer;}
@@ -59,7 +59,7 @@ function toggleBH(el){
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2019-09-21. (<a href="scrounger_20180826.html">Older Logic</a>)</p>
+<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2019-10-26. (<a href="scrounger_20180826.html">Older Logic</a>)</p>
 </footer>
 <script type="text/javascript">
 // Compatibility check
@@ -78,11 +78,13 @@ if (typeof(window.TextDecoder) !== 'function'){
 // Clean up form controls on reload (i.e., not bypassing cache)
 document.getElementById('drop_zone').value = '';
 document.getElementById('btnScrounge').setAttribute('disabled', 'disabled');
+document.getElementById('btnDumblist').setAttribute('disabled', 'disabled');
 document.getElementById('btnSave').setAttribute('disabled', 'disabled');
 document.getElementById('btnJSON').setAttribute('disabled', 'disabled');
 document.getElementById('btnEmbed').setAttribute('disabled', 'disabled');
+document.getElementById('btnText').setAttribute('disabled', 'disabled');
 // Functions used in the page
-function parsejson(){
+function parsejson(blnDumblist){
 	if (document.getElementById('scrounged')){
 		if(!confirm('Remove previous list of windows and tabs now?')) return;
 		document.getElementById('scrounged').remove();
@@ -91,10 +93,12 @@ function parsejson(){
 	var txt = document.getElementById('drop_zone');
 	if (txt.value.length > 0){
 		document.getElementById('btnScrounge').setAttribute('disabled', 'disabled');
+		document.getElementById('btnDumblist').setAttribute('disabled', 'disabled');
 		document.getElementById('btnScrounge').insertAdjacentHTML('afterend', ' <span id="msgproc" style="font-style:italic">Processing...</span> ');
 		if (txt.value.indexOf('{"sessions":') === 0 && txt.value.indexOf('{"tabs":[') < 0) buildTSMList(txt);
 		else if (txt.value.indexOf('{"backupSessionStore":') === 0) buildSBossList(txt);
 		else if (txt.value.indexOf('{"state":"{\\"tabGroups\\":') === 0) buildOneTabList(txt);
+		else if (blnDumblist) buildURLList(txt);
 		else {
 			try {
 				var oSess = JSON.parse(txt.value);
@@ -672,6 +676,24 @@ function buildOneTabList(inp){
 	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
 	document.getElementById('btnSave').removeAttribute('disabled');
 }
+function buildURLList(inp){
+	var out=new Array();
+	var taburls = inp.value.split('{"url":"'), k, strURL, strTitle;
+	out.push('<div class=\'urllist\'>');
+	for (k=taburls.length - 1; k >= 1; k--) {
+		strURL = taburls[k].substr(0, taburls[k].indexOf('","'));
+		strTitle = taburls[k].split('"title":"')[1] || '[Title Not Available]';
+		strTitle = strTitle.substr(0, strTitle.indexOf('","'));
+		if (strTitle.length == 0) strTitle = '[Title Not Available]';
+		out.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong><br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+	}
+	out.push('</div>');
+	var elOut = document.getElementById('output');
+	var finfo = document.querySelectorAll('#fileinfo span');
+	elOut.insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session History (Unstructured URL List)</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n' + out.join('\n') + '\n</div><!--hi-->');
+	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+	document.getElementById('btnSave').removeAttribute('disabled');
+}
 function SaveList(){
 	var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
 	saveAs(
@@ -838,6 +860,22 @@ function SaveJSONEmbed(){
 		alert('Not saving due to failure parsing JSON: ' + err.toString());
 	}
 }
+function SaveJSONText(){
+	// Check the JSON
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.length === 0){
+		alert('Box is empty?');
+		return;
+	}
+	// Make blob and trigger save dialog
+	var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+	saveAs(
+		new Blob(
+			  [txt]
+			, {type: 'text/plain;charset=UTF-8'}
+		), 'sessionstore('+fn.replace(/\./g,'_')+').txt'
+	);
+}
 // copied/adapted from https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
 function drop_handler(ev) {
 	ev.preventDefault();
@@ -851,7 +889,9 @@ function drop_handler(ev) {
 			if (dt.items[i].kind == "file") {
 				readfile(dt.items[i].getAsFile());
 				document.getElementById('btnScrounge').removeAttribute('disabled');
+				document.getElementById('btnDumblist').removeAttribute('disabled');
 				document.getElementById('btnJSON').removeAttribute('disabled');
+				document.getElementById('btnText').removeAttribute('disabled');
 				window.setTimeout(checkForEmbeds, 4000);
 				break;
 			}
@@ -861,7 +901,9 @@ function drop_handler(ev) {
 		for (var i=0; i < dt.files.length; i++) {
 			readfile(dt.files[i]); 
 			document.getElementById('btnScrounge').removeAttribute('disabled');
+			document.getElementById('btnDumblist').removeAttribute('disabled');
 			document.getElementById('btnJSON').removeAttribute('disabled');
+			document.getElementById('btnText').removeAttribute('disabled');
 			window.setTimeout(checkForEmbeds, 4000);
 			break;
 		}  
@@ -908,7 +950,9 @@ function loadFile(inp){
 	}
 	readfile(inp.files[0]);
 	document.getElementById('btnScrounge').removeAttribute('disabled');
+	document.getElementById('btnDumblist').removeAttribute('disabled');
 	document.getElementById('btnJSON').removeAttribute('disabled');
+	document.getElementById('btnText').removeAttribute('disabled');
 }
 function checkForEmbeds(){
 	// Look for the embedded session string
@@ -920,6 +964,7 @@ function checkForEmbeds(){
 function reenableScrounge(evt){
 	if (evt.target.nodeName == 'INPUT' || evt.target.nodeName === 'LABEL'){
 		document.getElementById('btnScrounge').removeAttribute('disabled');
+		document.getElementById('btnDumblist').removeAttribute('disabled');
 	}
 }
 document.getElementById('scrounge_options').addEventListener('click', reenableScrounge, false);
