@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+<title>Extension Extractor &mdash; Fx File Utilities</title>
+<link rel="stylesheet" href="styles.css" type="text/css">
+</head>
+<body>
+<nav>
+<ul>
+<li id="logo">Fx File Utilities</li>
+<li><a href="scrounger.html" title="Scrounge URLs from session history files">Session History</a></li>
+<li><a href="bookbackreader.html" title="Save JSON or Export HTML from bookmark backup files">Bookmark Backup</a></li>
+<li><a href="searchjson.html" title="Read out search engine details">Search Engines</a></li>
+<li><span id="current">Extensions</span></li>
+</ul>
+</nav>
+<header>
+<h1>Firefox Extension Extractor</h1>
+</header>
+<article>
+<div id="main">
+<p><em>Firefox stores information on built-in and added-on extensions in the extensions.json file. This page provides a brief summary table showing what it found.</em></p>
+<h2>Step 1: Load File</h2>
+<p>Drag and drop extensions.json onto the empty text box. This file is not sent to the network, it is only read within this page in Firefox.</p>
+<div id="uploaddiv">
+	<textarea id="drop_zone" ondrop="drop_handler(event);"  ondragover="dragover_handler(event);"  ondragend="dragend_handler(event);" style="width:80%" autocomplete="false" placeholder="Drop file here"></textarea>
+	<div style="position:absolute; right:0; top:0; width:calc(20% - 18px); cursor: pointer;" onclick="document.querySelector('#btnBrowse').click();";>
+		<p style="margin-top:2em; text-align:center;">Or open using: <br><br><input type="file" id="btnBrowse" onchange="loadFile(this);" style="width: 80px"></p>
+	</div>
+</div>
+<p><em>Note: To try a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
+<h2>Step 2: Generate Table / Save File</h2>
+<p>Date format: <select id="selDateFmt">
+	<option value="tls" selected>toLocaleString()</option>
+	<option value="ymd">yyyy-mm-dd</option>
+	<option value="dmy">dd/mm/yyyy</option>
+	<option value="mdy">mm/dd/yyyy</option>
+</select> <button onclick="showDetails()" id="btnParse" disabled>Generate Table</button> <button onclick="SaveTable()" id="btnSave" disabled>Save Table</button></p>
+<div id="output">
+</div>
+</div><!-- #main -->
+</article>
+<footer>
+<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2019-12-24.</p>
+</footer>
+<script type="text/javascript">
+// Clean up form controls on reload (i.e., not bypassing cache)
+document.getElementById('drop_zone').value = '';
+document.getElementById('btnParse').setAttribute('disabled', 'disabled');
+document.getElementById('btnSave').setAttribute('disabled', 'disabled');
+function readfile(f){
+	// Add notation below textarea
+	if (document.getElementById('fileinfo')) document.getElementById('fileinfo').remove();
+	document.getElementById('drop_zone').insertAdjacentHTML('afterend', '<p id="fileinfo">File name: <span>'+f.name+'</span>; Size: '+f.size+'; last modified <span>'+new Date(f.lastModified).toLocaleString()+'</span></p>');
+	// Use a FileReader to pull the contents out of the file and drop it into the textarea element
+	var reader = new FileReader();
+	reader.onload = function(evt) { // handle result of the file read
+		document.getElementById('drop_zone').value = evt.target.result;
+	};
+	reader.readAsText(f);
+}
+var baseurl = 'https://addons.mozilla.org/api/v4/addons/search/?app=firefox&amp;guid=';
+var arrExts = [];
+function showDetails(){
+	var txt = document.getElementById('drop_zone').value;
+	try {
+		var oFile = JSON.parse(txt);
+	} catch (err) {
+		console.log('Not reading data due to failure parsing JSON: ' + err.toString());
+		return;
+	}
+	arrExts = oFile.addons; // Array of objects
+	var arrOut = [], sTemp = '';
+	for (var i=0; i<arrExts.length; i++){
+		// Build description
+		sTemp = '<tr sortby="' + arrExts[i].type + '|' + !arrExts[i].active + '"><td><strong>' + arrExts[i].defaultLocale.name + '</strong>';
+		if (arrExts[i].type == 'theme') sTemp += ' (theme)';
+		sTemp += '<br>Version: ' + arrExts[i].version + '</td><td>';
+		if (arrExts[i].hasOwnProperty('installDate')){
+			sTemp += fmtD(arrExts[i].installDate) + '</td><td>';
+		} else {
+			sTemp += '--</td><td>';
+		}
+		if (arrExts[i].hasOwnProperty('updateDate')){
+			sTemp += fmtD(arrExts[i].updateDate) + '</td><td>';
+		} else {
+			sTemp += '--</td><td>';
+		}
+		if (arrExts[i].active){
+			sTemp += 'Enabled</td><td>';
+		} else {
+			if (arrExts[i].appDisabled) {
+				sTemp += 'Disabled by Firefox</td><td>';
+			} else {
+				sTemp += 'Disabled</td><td>';
+			}
+		}
+		sTemp += arrExts[i].id + '<br><span id="ext_' + i + '"></span></td></tr>';
+		arrOut.push(sTemp);
+	}
+	document.getElementById('btnSave').removeAttribute('disabled');
+	// Sort array to group by type
+	arrOut.sort();
+	// Write out the contents
+	var out = document.getElementById('output');
+	var strOut = '<style>table {border:1px solid #000; border-collapse: collapse;} ' + 
+		'th, td {border:1px solid #000; padding: 3px; text-align: left; vertical-align: top;}</style>\n' + 
+		'<h2>Highlights of extensions.json</h2>\n' +
+		'<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Status</th><th>ID and Source</th></thead>\n<tbody>';
+	out.innerHTML = strOut + arrOut.join('\n') + '</tbody></table>\n';
+	window.setTimeout(function(){addAMOLinks(0);}, 1000);
+}
+var mo = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+function fmtD(strDate){
+	if (strDate == '') return '';
+	var d = new Date(strDate);
+	switch (document.getElementById('selDateFmt').value){
+		case 'ymd':
+			return d.getFullYear() + '-' + mo[d.getMonth()] + '-' + ('0' + d.getDate()).slice(-2) + ' ' + d.toLocaleTimeString();
+		case 'dmy':
+			return ('0' + d.getDate()).slice(-2) + '/' + mo[d.getMonth()] + '/' + d.getFullYear() + ' ' + d.toLocaleTimeString();
+		case 'mdy':
+			return mo[d.getMonth()] + '/' + ('0' + d.getDate()).slice(-2) + '/' + d.getFullYear() + ' ' + d.toLocaleTimeString();
+		case 'tls':
+		default:
+			return d.toLocaleString().replace(',', '');
+	}
+}
+function addAMOLinks(counter){
+	// Look up ID via the Add-ons site API and grab the source page URL
+	if (arrExts[counter].location == 'app-builtin'){
+		document.getElementById('ext_' + counter).textContent = 'Built-in (' + arrExts[counter].rootURI + ')';
+		if (counter + 1 < arrExts.length) addAMOLinks(counter + 1);
+	} else if (arrExts[counter].location == 'app-system-defaults') {
+		document.getElementById('ext_' + counter).textContent = 'System Add-on (features)';
+		if (counter + 1 < arrExts.length) addAMOLinks(counter + 1);
+	} else if (arrExts[counter].location == 'winreg-app-global') {
+		document.getElementById('ext_' + counter).textContent = 'Sideloaded (' + arrExts[counter].path + ')';
+		if (counter + 1 < arrExts.length) addAMOLinks(counter + 1);
+	} else {
+		url = baseurl + encodeURIComponent(arrExts[counter].id) + '&extcount=' + counter;
+		var request = new XMLHttpRequest();
+		request.onreadystatechange = function(evt) {
+			if (request.readyState==4) {
+			  if (request.status==200) {
+				var respObj = JSON.parse(request.responseText);
+				if (respObj.errdesc){
+					alert(respObj.errdesc);
+					return false;
+				}
+				var count = parseInt(request.responseURL.slice(request.responseURL.lastIndexOf('=') + 1));
+				if (respObj.results.length > 0){
+					document.getElementById('ext_' + count).innerHTML = '<a href="' + respObj.results[0].url + '" target="_blank">' + respObj.results[0].url + '</a>';
+				} else {
+					document.getElementById('ext_' + count).textContent = 'From: ' + arrExts[count].sourceURI;
+				}
+				request = null;
+				if (count + 1 < arrExts.length) addAMOLinks(count + 1);
+			  }
+			}
+		}
+		request.open("get", url, true);
+		request.send();
+	}
+}
+function SaveTable(){
+	var dt = new Date().toISOString();
+	var fn = 'extensions_json(' + dt.slice(0, dt.indexOf('T')) + ').html';
+	saveAs(
+		  new Blob(
+			  ['<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Extensions List</title></head><body>'+document.getElementById('output').innerHTML+'<p>Extracted using <a href="https://www.jeffersonscher.com/ffu/extensionsjson.html">https://www.jeffersonscher.com/ffu/extensionsjson.html</a></p></body></html>']
+			, {type: 'text/html;charset=UTF-8'}
+		)
+		, fn
+	);
+}
+
+// copied/adapted from https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
+function drop_handler(ev) {
+	ev.preventDefault();
+	// If dropped items aren't files, reject them
+	var dt = ev.dataTransfer;
+	if (dt.items) {
+		// Use DataTransferItemList interface to access the file(s) (break after first file opened)
+		for (var i=0; i < dt.items.length; i++) {
+			if (dt.items[i].kind == "file") {
+				readfile(dt.items[i].getAsFile());
+				document.getElementById('btnParse').removeAttribute('disabled');
+				break;
+			}
+		}
+		} else { // ** NOT TESTED **
+		// Use DataTransfer interface to access the file(s)  (break after first file opened)
+		for (var i=0; i < dt.files.length; i++) {
+			readfile(dt.files[i]); 
+			document.getElementById('btnParse').removeAttribute('disabled');
+			break;
+		}  
+	}
+}
+function dragover_handler(ev) {
+  console.log("dragOver");
+  // Prevent default select and drag behavior
+  ev.preventDefault();
+}
+function dragend_handler(ev) {
+  console.log("dragEnd");
+  // Remove all of the drag data
+  var dt = ev.dataTransfer;
+  if (dt.items) {
+    // Use DataTransferItemList interface to remove the drag data
+    for (var i = 0; i < dt.items.length; i++) {
+      dt.items.remove(i);
+    }
+  } else {
+    // Use DataTransfer interface to remove the drag data
+    ev.dataTransfer.clearData();
+  }
+}
+function loadFile(inp){
+	if (inp.files.length == 0) return;
+	if (inp.files.length > 1){
+		inp.insertAdjacentHTML('afterend', '<br><em>First file used</em>');
+	}
+	readfile(inp.files[0]);
+	document.getElementById('btnParse').removeAttribute('disabled');
+}
+</script>
+<script type="text/javascript" src="ffu.js"></script>
+<script type="text/javascript" src="FileSaver.min.js"></script>
+<script type="text/javascript" src="lz4.js"></script>
+<style>
+#output {border-top:2px solid #000; font-family:sans-serif; font-size: 16px;}
+#output:not(:empty) {border-bottom:2px solid #000;}
+#output table {margin-bottom: 30px;}
+@media screen { }
+</style>
+</body>
+</html>
