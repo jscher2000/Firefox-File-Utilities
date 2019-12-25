@@ -62,7 +62,7 @@ function readfile(f){
 	reader.readAsText(f);
 }
 var baseurl = 'https://addons.mozilla.org/api/v4/addons/search/?app=firefox&amp;guid=';
-var arrExts = [];
+var arrExts = [], arrLookup = [];
 function showDetails(){
 	var txt = document.getElementById('drop_zone').value;
 	try {
@@ -88,16 +88,27 @@ function showDetails(){
 		} else {
 			sTemp += '--</td><td>';
 		}
+		sTemp += arrExts[i].type.charAt(0).toUpperCase() + arrExts[i].type.slice(1) + '<br>';
 		if (arrExts[i].active){
-			sTemp += 'Enabled</td><td>';
+			sTemp += 'Enabled</td>';
 		} else {
 			if (arrExts[i].appDisabled) {
-				sTemp += 'Disabled by Firefox</td><td>';
+				sTemp += 'Disabled by Firefox</td>';
 			} else {
-				sTemp += 'Disabled</td><td>';
+				sTemp += 'Disabled</td>';
 			}
 		}
-		sTemp += arrExts[i].id + '<br><span id="ext_' + i + '"></span></td></tr>';
+		sTemp += '<td id="ext_' + i + '">' + arrExts[i].id + '<br>';
+		if (arrExts[i].location == 'app-builtin'){
+			sTemp += 'Built-in (' + arrExts[i].rootURI + ')';
+		} else if (arrExts[i].location == 'app-system-defaults' || arrExts[i].location == 'app-system-addons') {
+			sTemp += 'System Add-on (features)';
+		} else if (arrExts[i].location == 'winreg-app-global' || arrExts[i].location == 'winreg-app-user') {
+			sTemp += 'Sideloaded through Windows Registry (' + arrExts[i].path + ')';
+		} else {
+			arrLookup.push(i);
+		}
+		sTemp += '</td></tr>';
 		arrOut.push(sTemp);
 	}
 	document.getElementById('btnSave').removeAttribute('disabled');
@@ -105,10 +116,10 @@ function showDetails(){
 	arrOut.sort();
 	// Write out the contents
 	var out = document.getElementById('output');
-	var strOut = '<style>table {border:1px solid #000; border-collapse: collapse;} ' + 
-		'th, td {border:1px solid #000; padding: 3px; text-align: left; vertical-align: top;}</style>\n' + 
+	var strOut = '<style>table {border:1px solid #000; border-collapse: collapse;} tr.recom {background-color: #f0fff0;} ' + 
+		'tr[sortby*="true"] {background-color: #eee;} th, td {border:1px solid #000; padding: 3px; text-align: left; vertical-align: top;}</style>\n' + 
 		'<h2>Highlights of extensions.json</h2>\n' +
-		'<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Status</th><th>ID and Source</th></thead>\n<tbody>';
+		'<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Type &amp; Status</th><th>ID and Source</th></thead>\n<tbody>';
 	out.innerHTML = strOut + arrOut.join('\n') + '</tbody></table>\n';
 	window.setTimeout(function(){addAMOLinks(0);}, 1000);
 }
@@ -130,14 +141,11 @@ function fmtD(strDate){
 }
 function addAMOLinks(counter){
 	// Look up ID via the Add-ons site API and grab the source page URL
-	if (arrExts[counter].location == 'app-builtin'){
-		document.getElementById('ext_' + counter).textContent = 'Built-in (' + arrExts[counter].rootURI + ')';
-		if (counter + 1 < arrExts.length) addAMOLinks(counter + 1);
-	} else if (arrExts[counter].location == 'app-system-defaults') {
-		document.getElementById('ext_' + counter).textContent = 'System Add-on (features)';
-		if (counter + 1 < arrExts.length) addAMOLinks(counter + 1);
-	} else if (arrExts[counter].location == 'winreg-app-global') {
-		document.getElementById('ext_' + counter).textContent = 'Sideloaded (' + arrExts[counter].path + ')';
+	if (arrExts[counter].location == 'app-builtin' || 
+		arrExts[counter].location == 'app-system-defaults' ||
+		arrExts[counter].location == 'app-system-addons' ||
+		arrExts[counter].location == 'winreg-app-global' ||
+		arrExts[counter].location == 'winreg-app-user') { // already handled
 		if (counter + 1 < arrExts.length) addAMOLinks(counter + 1);
 	} else {
 		url = baseurl + encodeURIComponent(arrExts[counter].id) + '&extcount=' + counter;
@@ -152,9 +160,13 @@ function addAMOLinks(counter){
 				}
 				var count = parseInt(request.responseURL.slice(request.responseURL.lastIndexOf('=') + 1));
 				if (respObj.results.length > 0){
-					document.getElementById('ext_' + count).innerHTML = '<a href="' + respObj.results[0].url + '" target="_blank">' + respObj.results[0].url + '</a>';
+					document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', '<a href="' + respObj.results[0].url + '" target="_blank">' + respObj.results[0].url + '</a>');
+					if (respObj.results[0].is_recommended){
+						document.getElementById('ext_' + count).parentNode.className = 'recom';
+						document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', ' <em>Recommended</em>');
+					}
 				} else {
-					document.getElementById('ext_' + count).textContent = 'From: ' + arrExts[count].sourceURI;
+					document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', 'From: ' + arrExts[count].sourceURI + ' ("' + arrExts[count].location + '")');
 				}
 				request = null;
 				if (count + 1 < arrExts.length) addAMOLinks(count + 1);
