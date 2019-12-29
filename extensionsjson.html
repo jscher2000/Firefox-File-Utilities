@@ -43,7 +43,7 @@
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2019-12-24.</p>
+<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2019-12-29.</p>
 </footer>
 <script type="text/javascript">
 // Clean up form controls on reload (i.e., not bypassing cache)
@@ -72,11 +72,13 @@ function showDetails(){
 		return;
 	}
 	arrExts = oFile.addons; // Array of objects
-	var arrOut = [], sTemp = '';
+	var sType = '', arrOut = [], sTemp = '';
 	for (var i=0; i<arrExts.length; i++){
 		// Build description
-		sTemp = '<tr sortby="' + arrExts[i].type + '|' + !arrExts[i].active + '"><td><strong>' + arrExts[i].defaultLocale.name + '</strong>';
-		if (arrExts[i].type == 'theme') sTemp += ' (theme)';
+		if (arrExts[i].rootURI.indexOf('resource://search-extensions/') > -1) sType = 'SearchXPI';
+		else sType = arrExts[i].type.charAt(0).toUpperCase() + arrExts[i].type.slice(1);
+		sTemp = '<tr sortby="' + sType + '|' + !arrExts[i].active + '"><td><strong>' + arrExts[i].defaultLocale.name + '</strong>';
+		if (sType == 'Theme') sTemp += ' (theme)';
 		sTemp += '<br>Version: ' + arrExts[i].version + '</td><td>';
 		if (arrExts[i].hasOwnProperty('installDate')){
 			sTemp += fmtD(arrExts[i].installDate) + '</td><td>';
@@ -88,7 +90,7 @@ function showDetails(){
 		} else {
 			sTemp += '--</td><td>';
 		}
-		sTemp += arrExts[i].type.charAt(0).toUpperCase() + arrExts[i].type.slice(1) + '<br>';
+		sTemp += sType + '<br>';
 		if (arrExts[i].active){
 			sTemp += 'Enabled</td>';
 		} else {
@@ -119,7 +121,7 @@ function showDetails(){
 	var strOut = '<style>table {border:1px solid #000; border-collapse: collapse;} tr.recom {background-color: #f0fff0;} ' + 
 		'tr[sortby*="true"] {background-color: #eee;} th, td {border:1px solid #000; padding: 3px; text-align: left; vertical-align: top;}</style>\n' + 
 		'<h2>Highlights of extensions.json</h2>\n' +
-		'<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Type &amp; Status</th><th>ID and Source</th></thead>\n<tbody>';
+		'<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Type &amp; Status</th><th style="width:40%">ID and Source</th></thead>\n<tbody>';
 	out.innerHTML = strOut + arrOut.join('\n') + '</tbody></table>\n';
 	window.setTimeout(function(){addAMOLinks(0);}, 1000);
 }
@@ -136,7 +138,7 @@ function fmtD(strDate){
 			return mo[d.getMonth()] + '/' + ('0' + d.getDate()).slice(-2) + '/' + d.getFullYear() + ' ' + d.toLocaleTimeString();
 		case 'tls':
 		default:
-			return d.toLocaleString().replace(',', '');
+			return d.toLocaleString().replace(', ', '<br>');
 	}
 }
 function addAMOLinks(counter){
@@ -242,7 +244,6 @@ function loadFile(inp){
 </script>
 <script type="text/javascript" src="ffu.js"></script>
 <script type="text/javascript" src="FileSaver.min.js"></script>
-<script type="text/javascript" src="lz4.js"></script>
 <style>
 #output {border-top:2px solid #000; font-family:sans-serif; font-size: 16px;}
 #output:not(:empty) {border-bottom:2px solid #000;}
