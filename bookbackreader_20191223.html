@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+<title>Firefox Bookmark Backup Reader/Decompressor &mdash; Fx File Utilities</title>
+<link rel="stylesheet" href="styles.css" type="text/css">
+</head>
+<body>
+<nav>
+<ul>
+<li id="logo">Fx File Utilities</li>
+<li><a href="scrounger.html" title="Scrounge URLs from session history files">Session History</a></li>
+<li><span id="current">Bookmark Backup</span></li>
+<li><a href="searchjson.html" title="Read out search engine details">Search Engines</a></li>
+<li><a href="extensionsjson.html" title="Read out extension details">Extensions</a></li>
+</ul>
+</nav>
+<header>
+<h1>Firefox Bookmark Backup Reader/Decompressor</h1>
+</header>
+<article>
+<div id="main">
+<p><em>Firefox creates frequent backups of your bookmarks. Automatic backups are compressed using Mozilla's flavor of LZ4 compression (.jsonlz4 file extension), while backups you create yourself (in the Library window) are not compressed (.json file extension by default). This tool can convert a backup file to the HTML export format.</em></p>
+<h2>Step 1: Load File</h2>
+<p>Drag and drop one .jsonlz4 (or .json) bookmark backup file onto the empty text box, or use the Browse... button on the right. <span>(<button onclick="document.getElementById('backhelp').style.display=''; this.parentNode.style.display='none';">HELP</button>)</span><span id="backhelp" style="display:none; background-color:#ffc;">These files are stored in the <strong>bookmarkbackups</strong> folder in your Firefox profile folder. If you are unfamiliar with how to locate your profile folder, please see: <a href="https://support.mozilla.org/kb/profiles-where-firefox-stores-user-data" target="_blank">Profiles - Where Firefox stores your bookmarks, passwords and other user data</a> on Mozilla Support.</span> This file is not sent to the network, it is only read within this page in Firefox. <strong><em>Performance Note:</em></strong> Decompressing files and working with large sets of bookmarks is processor intensive, so please be patient. If the fan won't stop running, you can close the tab and launch the document again.</p>
+<div id="uploaddiv">
+	<textarea id="drop_zone" ondrop="drop_handler(event);"  ondragover="dragover_handler(event);"  ondragend="dragend_handler(event);" style="width:80%" autocomplete="false" placeholder="Drop file here"></textarea>
+	<div style="position:absolute; right:0; top:0; width:calc(20% - 18px); cursor: pointer;" onclick="document.querySelector('#btnBrowse').click();";>
+		<p style="margin-top:2em; text-align:center;">Or open using: <br><br><input type="file" id="btnBrowse" onchange="loadFile(this);" style="width: 80px"></p>
+	</div>
+</div>
+<p><em>Note: To try a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
+<h2>Step 2: Convert / Repair / Save Your Bookmarks</h2>
+<p><strong>JSON "Backup" Format:</strong> <label><input type="checkbox" id="chkAnnos">&nbsp;Clear Descriptions</label> <button onclick="SaveJSON()" id="btnSave" disabled>Save JSON</button><br><button onclick="CheckJSON()" id="btnCheckJ" disabled>Check/Repair JSON</button> <span id="spanCheck"><em>For files Firefox cannot restore</em></span></p>
+<p><strong>HTML "Export" Format: </strong> <label><input type="checkbox" id="chkDesc" onclick="adjOnly()" checked>&nbsp;Include Descriptions</label> <label><input type="checkbox" id="chkDescOnly">&nbsp;<em>Only</em> Bookmarks with Descriptions</label> (<label><input type="checkbox" id="chkUnstructured">&nbsp;Bookmark Notes importable)</label> <br><label><input type="checkbox" id="chkIndent" checked>&nbsp;Add indenting (for easier reading)</label> <label><input type="checkbox" id="chkShowTags">&nbsp;Make Tags visible</label> <label><input type="checkbox" id="chkShowKW">&nbsp;Make Keywords visible</label> <button onclick="SaveHTML()" id="btnExport" disabled>Export HTML</button><br>
+<em>Currently does not embed icon data.</em></p>
+<p><strong>Extract Feeds (backups from Firefox 63 and earlier): </strong><button onclick="getRSS()" id="btnFeeds" disabled>Find Feeds</button></p><div id="feedout" style="display:none; background-color: #fff; border: 1px solid #ccc; padding:0 8px; height:300px; overflow-y:auto;"></div> <button onclick="SaveFeeds()" id="btnSaveFeeds" disabled>Save Feeds List</button> (plain text format)<textarea id="opmlout" style="display:none; width:100%; height:300px; margin-top:1em;"></textarea> <button onclick="SaveOPML()" id="btnOPML" disabled>Export OPML</button> (please also save the list format just in case)</div><!-- #main -->
+</article>
+<footer>
+<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2018-12-25. (<a href="bookbackreader_20181020.html">Oct. 20 version</a>)</p>
+</footer>
+<script type="text/javascript">
+// Compatibility check
+if (typeof(window.TextDecoder) !== 'function'){
+	var p1 = document.createElement('p');
+	p1.setAttribute('style', 'border:3px solid red; padding:12px 30px;');
+	p1.innerHTML = 'Unfortunately, this tool does not work in your current browser. Sorry. Please try Firefox, Chrome, Chromium or Opera instead. <br>' +
+		'(IE and Edge do not support <a href="https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder#Browser_compatibility">TextDecoder</a>. ' +
+		'IE also does not support <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray#Browser_compatibility">TypedArray.slice()</a>; unclear whether Edge or Safari supports it.)';
+	document.body.insertBefore(p1, document.body.firstChild);
+}
+/* 
+   If you are reading this comment, perhaps you might want to polyfill the missing functionality? Here's a start:
+   https://github.com/inexorabletash/text-encoding/
+*/
+// Clean up form controls on reload (i.e., not bypassing cache)
+document.getElementById('drop_zone').value = '';
+document.getElementById('btnSave').setAttribute('disabled', 'disabled');
+document.getElementById('btnExport').setAttribute('disabled', 'disabled');
+document.getElementById('btnCheckJ').setAttribute('disabled', 'disabled');
+document.getElementById('btnFeeds').setAttribute('disabled', 'disabled');
+document.getElementById('btnSaveFeeds').setAttribute('disabled', 'disabled');
+document.getElementById('btnOPML').setAttribute('disabled', 'disabled');
+// Functions used in the page
+var oBmks;
+function SaveJSON(){
+	// Check the JSON
+	try {
+		oBmks = JSON.parse(document.getElementById('drop_zone').value);
+		if (document.getElementById('chkAnnos').checked){
+			// recurse the object and set descriptions to an empty string
+			oBmks = stripAnnos(oBmks);
+			var fnend = '_converted(no-desc).json';
+		} else {
+			var fnend = '_converted.json';
+		}
+		// Make blob and trigger save dialog
+		var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+		if (fn.lastIndexOf('_') > -1) var fnout = fn.substr(0, fn.lastIndexOf('_')) + fnend;
+		else fnout = fn + fnend;
+		saveAs(
+			new Blob(
+				  [JSON.stringify(oBmks)]
+				, {type: 'application/json;charset=UTF-8'}
+			), fnout
+		);
+	} catch (err) {
+		alert('Not saving due to failure parsing JSON: ' + err.toString());
+	}
+}
+var out = '', do_desc = false, desc_only = false, unstructured = false, showTags = false, showKW = false;
+var runtime = Date.now().toString().substr(0, 10);
+function SaveHTML(){
+	// Check the JSON
+	try {
+		oBmks = JSON.parse(document.getElementById('drop_zone').value);
+		// Make blob and trigger save dialog
+		out = '';
+		if (document.getElementById('chkDesc').checked) do_desc = true;
+		if (document.getElementById('chkDescOnly').checked) {do_desc = true; desc_only = true;}
+		if (document.getElementById('chkUnstructured').checked) {do_desc = true; desc_only = true; unstructured = true;}
+		if (document.getElementById('chkShowTags').checked) showTags = true;
+		if (document.getElementById('chkShowKW').checked) showKW = true;
+		for (var i=0; i<oBmks.children.length; i++){
+			if (oBmks.children[i].hasOwnProperty('children')){
+				if (i===0) convert(oBmks.children[i], '');
+				else convert(oBmks.children[i], '    ');
+			}
+		}
+		var strEnd = '</DL>';
+		if (document.getElementById('chkIndent').checked) strEnd += '<style>dd {white-space: pre-wrap;} dd>dl, dd>p {white-space: initial;} dl>dt>dl {margin-left: 1em; border-left: 1px solid #444; padding-left: 1em;} dt>h3[personal_toolbar_folder="true"]+dl {border-left: 3px double #090;} dt>h3[unfiled_bookmarks_folder="true"]+dl {border-left: 3px double #f00;}';
+		if (showTags) strEnd += ' .tags {margin-left: 8px; padding: 1px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.8em;}';
+		if (showKW) strEnd += ' .keyw {margin-left: 8px; padding: 1px 6px; font-family: monospace; color: #fff; background-color: #006; border-radius: 3px; font-size: 1em;}';
+		strEnd += '</style>';
+		saveAs(
+			new Blob(
+				  ['<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL><p>\n' + out + strEnd]
+				, {type: 'text/html;charset=UTF-8'}
+			), 'bookmarks_from_json.html'
+		);
+	} catch (err) {
+		alert('Not saving due to failure parsing JSON: ' + err.toString());
+	}
+}
+function stripAnnos(obj){
+	if(obj instanceof Array){
+		for (var j=0; j<obj.length; j++) obj[j] = stripAnnos(obj[j]); 
+	} else {
+		if (obj.annos) obj.annos = clearAnnos(obj.annos);
+		if (obj.type == 'text/x-moz-place-container'){
+			if (obj.children){
+				for (var i=0; i<obj.children.length; i++){
+					obj.children[i] = stripAnnos(obj.children[i]);
+				}
+			}
+		}
+	}
+	return obj;
+}
+function clearAnnos(arrAnnos){
+	for (var k=0; k<arrAnnos.length; k++){
+		if (arrAnnos[k].name == 'bookmarkProperties/description') arrAnnos[k].value = '';
+	}
+	return arrAnnos;
+}
+function convert(oPlace, sp){
+	var pType = oPlace.type;
+	var pTitle = oPlace.title;
+	if (oPlace.hasOwnProperty('dateAdded') && oPlace.dateAdded !== 0){
+		var dtAdd = oPlace.dateAdded.toString().substr(0, 10);
+	} else {
+		var dtAdd = runtime;
+	}
+	if (oPlace.hasOwnProperty('lastModified') && oPlace.lastModified !== 0){
+		var dtMod = oPlace.lastModified.toString().substr(0, 10);
+	} else {
+		var dtMod = runtime;
+	}
+	var annos = oPlace.annos;
+	if (pType == 'text/x-moz-place-container'){
+		// This is a folder or live bookmark
+		if (pTitle.length === 0) pTitle = 'Untitled';
+		if (annos && JSON.stringify(annos).indexOf('"name":"livemark/feedURI"') > -1){ // Live bookmark
+			var strTemp = '<DT><A';
+			for (var k=0; k<annos.length; k++){
+				if (annos[k].name == 'livemark/feedURI') {
+					strTemp += ' FEEDURL="' + annos[k].value.replace(/"/g, '%22') + '"';
+				}
+				if (annos[k].name == 'livemark/siteURI') {
+					strTemp += ' HREF="' + annos[k].value.replace(/"/g, '%22') + '"';
+				}
+			}
+			var extras = '';
+			var pIcon = oPlace.iconuri;
+			if (pIcon && pIcon.length > 0){
+				extras += ' ICON_URI="' + pIcon.replace(/"/g, '%22') + '"';
+			}
+			var pKeyword = oPlace.keyword;
+			if (pKeyword && pKeyword.length > 0){
+				extras += ' SHORTCUTURL="' + escapeHtmlEntities(pKeyword) + '"';
+			}
+			var pCharset = oPlace.charset;
+			if (pCharset && pCharset.length > 0){
+				extras += ' LAST_CHARSET="' + escapeHtmlEntities(pCharset) + '"';
+			}
+			var pTags = oPlace.tags;
+			if (pTags && pTags.length > 0){
+				extras += ' TAGS="' + escapeHtmlEntities(pTags) + '"';
+			}
+			if (desc_only == false){
+				out += sp + strTemp + ' ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>';
+				if (showKW && (pKeyword && pKeyword.length > 0)) out += ' <span class="keyw" title="keyword">' + escapeHtmlEntities(pKeyword) + '</span>';
+				if (showTags && (pTags && pTags.length > 0)) out += ' <span class="tags" title="tags">' + escapeHtmlEntities(pTags) + '</span>';
+				out += '\n';
+				if (do_desc) out += convAnnos(annos, sp);
+			}
+		} else { // Regular folder
+			var root = oPlace.root;
+			if (unstructured != true) { 
+				if (!root || root.length === 0){
+					out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					if (annos && do_desc) out += convAnnos(annos, sp);
+				} else {
+					// Omit this line for root == 'bookmarksMenuFolder'
+					if (root == 'toolbarFolder'){
+						out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '" personal_toolbar_folder="true">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					}
+					if (root == 'unfiledBookmarksFolder'){
+						out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '" unfiled_bookmarks_folder="true">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					}
+					// Are Mobile Bookmarks a thing??
+					if (root == 'mobileFolder'){
+						out += sp + '<DT><H3 ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '">' + escapeHtmlEntities(pTitle) + '</H3>\n';
+					}
+				}
+				if (!root || root.length === 0 || root != 'bookmarksMenuFolder'){
+					out +=  sp + '<DL><p>\n';
+				}
+			}
+			var arrChildren = oPlace.children;
+			if (arrChildren){
+				for (var i=0; i<arrChildren.length; i++){
+					convert(arrChildren[i], sp + '    ');
+				}
+			}
+			if (unstructured != true) { 
+				if (!root || root.length === 0 || root != 'bookmarksMenuFolder'){
+					out +=  sp + '</DL><p>\n';
+				}
+			}
+		}
+	}
+	if (pType == 'text/x-moz-place'){
+		// This is a bookmark
+		var pURI = oPlace.uri;
+		pURI = pURI.replace(/"/g, '%22');
+		var extras = '';
+		var pIcon = oPlace.iconuri;
+		if (pIcon && pIcon.length > 0){
+			extras += ' ICON_URI="' + pIcon.replace(/"/g, '%22') + '"';
+		}
+		var pKeyword = oPlace.keyword;
+		if (pKeyword && pKeyword.length > 0){
+			extras += ' SHORTCUTURL="' + escapeHtmlEntities(pKeyword) + '"';
+		}
+		var pCharset = oPlace.charset;
+		if (pCharset && pCharset.length > 0){
+			extras += ' LAST_CHARSET="' + escapeHtmlEntities(pCharset) + '"';
+		}
+		var pTags = oPlace.tags;
+		if (pTags && pTags.length > 0){
+			extras += ' TAGS="' + escapeHtmlEntities(pTags) + '"';
+		}
+		if (oPlace.title.length === 0) pTitle = '[' + oPlace.uri + ']';
+		if (desc_only == false){
+			out += sp + '<DT><A HREF="' + pURI + '" ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>';
+			if (showKW && (pKeyword && pKeyword.length > 0)) out += ' <span class="keyw" title="keyword">' + escapeHtmlEntities(pKeyword) + '</span>';
+			if (showTags && (pTags && pTags.length > 0)) out += ' <span class="tags" title="tags">' + escapeHtmlEntities(pTags) + '</span>';
+				out += '\n';
+			if (annos && do_desc) out += convAnnos(annos, sp);
+		} else {
+			if(annos) {
+				var chk_desc = convAnnos(annos, sp);
+				if (chk_desc.length > 0){
+					out += sp + '<DT><A HREF="' + pURI + '" ADD_DATE="' + dtAdd + '" LAST_MODIFIED="' + dtMod + '"' + extras + '>' + escapeHtmlEntities(pTitle) + '</A>\n';
+					out += chk_desc;
+				}
+			}
+		}
+	}
+}
+function convAnnos(arrAnnos, sp){
+	var descTags = '';
+	for (var i=0; i<arrAnnos.length; i++){
+		if (arrAnnos[i].name == 'bookmarkProperties/description'){
+			if (arrAnnos[i].value.length > 0){
+				descTags += sp + '<DD>' + escapeHtmlEntities(arrAnnos[i].value) + '\n';
+			}
+		}
+	}
+	return descTags;
+}
+var feedhtml, opmltext;
+function getRSS(){
+	try {
+		oBmks = JSON.parse(document.getElementById('drop_zone').value);
+	} catch (err) {
+		window.alert('Cannot extract because the text does not appear to be valid JSON-format data. Sorry.');
+		return;
+	}
+	// Extract livemark annotations and add to visible list and hidden XML block
+	feedhtml = '';
+	opmltext = '';
+	for (var i=0; i<oBmks.children.length; i++){
+		if (oBmks.children[i].hasOwnProperty('children')){
+			addFeed(oBmks.children[i]);
+		}
+	}
+	if (feedhtml.length > 0){
+		document.getElementById('feedout').innerHTML = feedhtml;
+		document.getElementById('opmlout').value = '<?xml version="1.0"?>\n<opml version="1.0"><head><title>Firefox Live Bookmarks</title></head>' +
+			'<body>\n' + opmltext + '</body></opml>';
+		// Show output
+		document.getElementById('feedout').style.display = 'block';
+		document.getElementById('opmlout').style.display = 'block';
+		// Enable buttons
+		document.getElementById('btnSaveFeeds').removeAttribute('disabled');
+		document.getElementById('btnOPML').removeAttribute('disabled');
+	} else {
+		window.alert('No Live Bookmarks found in the JSON code, sorry.');
+	}
+}
+function addFeed(oPlace){
+	var pType = oPlace.type;
+	var pTitle = oPlace.title;
+	var annos = oPlace.annos;
+	if (pType == 'text/x-moz-place-container'){
+		// This is a folder or live bookmark
+		if (pTitle.length === 0) pTitle = 'Untitled';
+		if (annos && JSON.stringify(annos).indexOf('"name":"livemark/feedURI"') > -1){ // Live bookmark
+			for (var k=0; k<annos.length; k++){
+				if (annos[k].name == 'livemark/feedURI') {
+					var strXml = annos[k].value; // .replace(/"/g, '%22') + '"'
+				}
+				if (annos[k].name == 'livemark/siteURI') {
+					var strUrl = annos[k].value;
+				}
+			}
+			feedhtml += '<strong>' + pTitle + '</strong><br>\nRSS: ' + strXml + '<br>\nSite: <a href="' + 
+				strUrl.replace(/"/g, '%22') + '" target="_blank">' + strUrl + '</a><br>\n<br>\n';
+			opmltext += '<outline type="rss" title="' + pTitle + '" text="' + pTitle + '" xmlUrl="' + strXml + '" htmlUrl="' + strUrl + '"/>\n';
+		} else { // Regular folder
+			var arrChildren = oPlace.children;
+			if (arrChildren){
+				for (var i=0; i<arrChildren.length; i++){
+					addFeed(arrChildren[i]);
+				}
+			}
+		}
+	}
+}
+function SaveOPML(){
+	// Check that we have output
+	var xml = document.getElementById('opmlout').value;
+	if (xml.length > 0){
+		// Make blob and trigger save dialog
+		var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+		var fnend = '_extracted-livemarks.opml';
+		if (fn.lastIndexOf('_') > -1) var fnout = fn.substr(0, fn.lastIndexOf('_')) + fnend;
+		else fnout = fn + fnend;
+		saveAs(
+			new Blob(
+				  [xml]
+				, {type: 'application/xml;charset=UTF-8'}
+			), fnout
+		);		
+	} else {
+		window.alert('The OPML text seems to be missing, sorry.');
+		return;
+	}
+}
+function SaveFeeds(){
+	// Check that we have output
+	var list = document.getElementById('feedout').textContent;
+	if (list.length > 0){
+		// Make blob and trigger save dialog
+		var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+		var fnend = '_extracted-livemarks.txt';
+		if (fn.lastIndexOf('_') > -1) var fnout = fn.substr(0, fn.lastIndexOf('_')) + fnend;
+		else fnout = fn + fnend;
+		saveAs(
+			new Blob(
+				  [list]
+				, {type: 'text/plain;charset=UTF-8'}
+			), fnout
+		);		
+	} else {
+		window.alert('The feed list seems to be missing, sorry.');
+		return;
+	}
+}
+function escapeHtmlEntities(aText) {
+	// from resource://gre/modules/BookmarkHTMLUtils.jsm
+	return (aText || "").replace(/&/g, "&amp;")
+						.replace(/</g, "&lt;")
+						.replace(/>/g, "&gt;")
+						.replace(/"/g, "&quot;")
+						.replace(/'/g, "&#39;");
+}
+function readfile(f){
+	// Add notation below textarea
+	if (document.getElementById('fileinfo')) document.getElementById('fileinfo').remove();
+	document.getElementById('drop_zone').insertAdjacentHTML('afterend', '<p id="fileinfo">File name: <span>'+f.name+'</span>; Size: '+f.size+'; last modified <span>'+new Date(f.lastModified).toLocaleString()+'</span></p>');
+	// Use a FileReader to pull the contents out of the file and drop it into the textarea element
+	var reader = new FileReader();
+	reader.onload = function(evt) { // handle result of the file read
+		if (typeof evt.target.result == 'string') document.getElementById('drop_zone').value = evt.target.result;
+		else {
+			let utf8decoder = new TextDecoder('utf-8');
+			var jsontxt = utf8decoder.decode(decomp(evt.target.result));
+			document.getElementById('drop_zone').value = jsontxt;
+		}
+		// Check the JSON
+		try {
+			oBmks = JSON.parse(document.getElementById('drop_zone').value);
+			document.getElementById('fileinfo').insertAdjacentHTML('beforeend', ' <span>(appears to be/contain valid JSON)</span>');
+			// Add some buttons
+			document.getElementById('btnSave').removeAttribute('disabled');
+			document.getElementById('btnExport').removeAttribute('disabled');
+			document.getElementById('btnCheckJ').removeAttribute('disabled');
+			document.getElementById('btnFeeds').removeAttribute('disabled');
+
+		} catch (err) {
+			document.getElementById('fileinfo').insertAdjacentHTML('beforeend', ' <span>(failed JSON parsing: ' + err.toString() + ')</span>');
+		}
+	};
+	// Assume anything without .jsonlz4 in the name is uncompressed
+	if (f.name.indexOf('.jsonlz4') == -1){
+		reader.readAsText(f);
+	} else {
+		reader.readAsArrayBuffer(f);
+	}
+}
+function decomp(arrbuff){
+	// See: https://github.com/pierrec/node-lz4
+	// Create typed array from ArrayBuffer
+	var u8arrbuff = new Uint8Array(arrbuff);
+	// Is it a standard JSON file with jsonlz4 somewhere in its name?
+	if ('{' == String.fromCharCode(u8arrbuff[0])) {
+		return u8arrbuff;
+	}
+	// Compute uncompressed data size
+	var u8sz = u8arrbuff.slice(8, 12);
+	var origLen = u8sz[0] + (u8sz[1] * 256) + (u8sz[2] * 256 * 256) + (u8sz[3] * 256 * 256 * 256);
+	// Extract compressed data (past header)
+	jsonstart = 12;
+	var u8comp = u8arrbuff.slice(jsonstart);
+	// Create LZ4 buffer
+	var Buffer = require('buffer').Buffer;
+	var LZ4 = require('lz4');
+	var comp = new Buffer(u8comp);
+	var orig = new Buffer(origLen);
+	// Do the deed
+	var decomLen = LZ4.decodeBlock(comp, orig);
+	return orig.slice(0, decomLen);
+}
+// copied/adapted from https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
+function drop_handler(ev) {
+	ev.preventDefault();
+	// If dropped items aren't files, reject them
+	var dt = ev.dataTransfer;
+	if (dt.items) {
+		// Use DataTransferItemList interface to access the file(s) (break after first file opened)
+		for (var i=0; i < dt.items.length; i++) {
+			if (dt.items[i].kind == "file") {
+				readfile(dt.items[i].getAsFile());
+				break;
+			}
+		}
+		} else { // ** NOT TESTED **
+		// Use DataTransfer interface to access the file(s)  (break after first file opened)
+		for (var i=0; i < dt.files.length; i++) {
+			readfile(dt.files[i]); 
+			break;
+		}  
+	}
+}
+function dragover_handler(ev) {
+  console.log("dragOver");
+  // Prevent default select and drag behavior
+  ev.preventDefault();
+}
+function dragend_handler(ev) {
+  console.log("dragEnd");
+  // Remove all of the drag data
+  var dt = ev.dataTransfer;
+  if (dt.items) {
+    // Use DataTransferItemList interface to remove the drag data
+    for (var i = 0; i < dt.items.length; i++) {
+      dt.items.remove(i);
+    }
+  } else {
+    // Use DataTransfer interface to remove the drag data
+    ev.dataTransfer.clearData();
+  }
+}
+function CheckJSON(){
+	try {
+		oBmks = JSON.parse(document.getElementById('drop_zone').value);
+		// 2018-04-14 Check for problem with misplaced roots; assume no duplicates; repair down one level
+		var unfiledChk = {rootCount: 0, inChild: -1, atPos: -1};
+		var toolbarChk = {rootCount: 0, inChild: -1, atPos: -1};
+		var pos = -1;
+		document.getElementById('spanCheck').innerHTML = 'Checking: ';
+		for (var i=0; i<oBmks.children.length; i++){
+			if (oBmks.children[i].guid == 'unfiled_____'){
+				unfiledChk.rootCount += 1;
+			} else {
+				pos = JSON.stringify(oBmks.children[i]).indexOf('"guid":"unfiled_____"');
+				if (pos > -1) {
+					unfiledChk.inChild = i;
+					unfiledChk.atPos = pos;
+				}
+			}
+			if (oBmks.children[i].guid == 'toolbar_____'){
+				toolbarChk.rootCount += 1;
+			} else {
+				pos = JSON.stringify(oBmks.children[i]).indexOf('"guid":"toolbar_____"');
+				if (pos > -1) {
+					toolbarChk.inChild = i;
+					toolbarChk.atPos = pos;
+				}
+			}
+		}
+		console.log('unfiledChk='+JSON.stringify(unfiledChk)+'; toolbarChk='+JSON.stringify(toolbarChk));
+		if (unfiledChk.rootCount < 1 && unfiledChk.inChild > -1){
+			// Try to relocate the misplaced object
+			var arrUnfiled = exciseByGuid(oBmks.children[unfiledChk.inChild].children, 'unfiled_____');
+			// Add to oBmks and upate drop_zone
+			if (arrUnfiled && arrUnfiled.length > 0){
+				oBmks.children.splice(3, 0, arrUnfiled[0]);
+				document.getElementById('drop_zone').value = JSON.stringify(oBmks);
+				document.getElementById('spanCheck').insertAdjacentHTML('beforeend', '"Other Bookmarks" category misplaced, will be fixed on Save JSON. ');
+			} else {
+				document.getElementById('spanCheck').insertAdjacentHTML('beforeend', '"Other Bookmarks" category misplaced, but JSON not fixed. Try Export HTML. ');
+			}
+		} else {
+			if (unfiledChk.rootCount < 1 && unfiledChk.inChild == -1) {
+				document.getElementById('spanCheck').insertAdjacentHTML('beforeend', '"Other Bookmarks" category missing, not restored. ');
+			}
+		}
+		if (toolbarChk.rootCount < 1 && toolbarChk.inChild > -1){
+			// Try to relocate the misplaced object
+			var arrToolbar = exciseByGuid(oBmks.children[toolbarChk.inChild].children, 'toolbar_____');
+			// Add to oBmks and upate drop_zone
+			if (arrToolbar && arrToolbar.length > 0){
+				oBmks.children.splice(3, 0, arrToolbar[0]);
+				document.getElementById('drop_zone').value = JSON.stringify(oBmks);
+				document.getElementById('spanCheck').insertAdjacentHTML('beforeend', '"Bookmarks Toolbar" category misplaced, will be fixed on Save JSON. ');
+			} else {
+				document.getElementById('spanCheck').insertAdjacentHTML('beforeend', '"Bookmarks Toolbar" category misplaced, but JSON not fixed. Try Export HTML. ');
+			}
+		} else {
+			if (toolbarChk.rootCount < 1 && toolbarChk.inChild == -1) {
+				document.getElementById('spanCheck').insertAdjacentHTML('beforeend', '"Bookmarks Toolbar" category missing, not restored. ');
+			}
+		}
+		document.getElementById('spanCheck').insertAdjacentHTML('beforeend', 'Done.');
+	} catch (err) {
+		alert('Unable to parse JSON: ' + err.toString());
+	}
+}
+function exciseByGuid(arrChildren, sGuid){
+	for (var i=0; i<arrChildren.length; i++){
+		if (arrChildren[i].guid == sGuid){
+			// jackpot!
+			return arrChildren.splice(i, 1);
+		} else if (arrChildren[i].type == 'text/x-moz-place-container') {
+			// iterate folder
+				var retval = exciseByGuid(arrChildren[i], sGuid);
+				if (retval && retval.length > 0) return retval;
+		} else {
+			// ignore individual bookmarks
+		}
+	}
+	return [];
+}
+function loadFile(inp){
+	if (inp.files.length == 0) return;
+	if (inp.files.length > 1){
+		inp.insertAdjacentHTML('afterend', '<br><em>First file used</em>');
+	}
+	readfile(inp.files[0]);
+}
+function adjOnly(){
+	if (!document.getElementById('chkDesc').checked) document.getElementById('chkDescOnly').disabled = true;
+	else document.getElementById('chkDescOnly').disabled = false;
+}
+</script>
+<script type="text/javascript" src="ffu.js"></script>
+<script type="text/javascript" src="FileSaver.min.js"></script>
+<script type="text/javascript" src="lz4.js"></script>
+</body>
+</html>
