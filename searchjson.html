@@ -21,7 +21,7 @@
 </header>
 <article>
 <div id="main">
-<p><em>Firefox stores information on built-in and added-on search engine plugins in a file compressed using Mozilla's flavor of LZ4 compression (.mozlz4 file extension). This page provides a brief summary table showing what it found; the full JSON data, including paths and parameters, can be saved for examination in a Firefox tab or another tool.</em></p>
+<p><em>Firefox stores information on built-in and added-on search engine plugins in a file compressed using Mozilla's flavor of LZ4 compression (.mozlz4 file extension). This page provides a brief summary table showing what it found; the full JSON data, including paths and parameters, can be saved for examination in a Firefox tab or another tool. Note: Firefox 78.0 was going to migrate this data to a new file, but that was reversed in Firefox 78.0.1.</em></p>
 <h2>Step 1: Load File</h2>
 <p>Drag and drop search.json.mozlz4 onto the empty text box. This file is not sent to the network, it is only read within this page in Firefox.</p>
 <div id="uploaddiv">
@@ -37,7 +37,7 @@
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2018 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2018-08-26. <a href="/res/searchjson_orig.html">Original</a></p>
+<p>Copyright &copy; 2020 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2020-07-31. <a href="/res/searchjson_orig.html">Original</a></p>
 </footer>
 <script type="text/javascript">
 // Clean up form controls on reload (i.e., not bypassing cache)
@@ -97,24 +97,55 @@ function showDetails(){
 	for (var i=0; i<sEngines.length; i++){
 		var sTemp = '00' + sEngines[i]._metaData.order;
 		var sVis = '0';
+		var sCheck = '1';
 		if (sEngines[i]._metaData.hasOwnProperty('hidden')){
+			sCheck = '0';
 			if (sEngines[i]._metaData.hidden === true) sVis = '1';
 		}
-		sOneClicks.push(sVis + '|' + sTemp.substr(-2) + '|' + sEngines[i]._name + '|' + sEngines[i]._shortName + '|' + sEngines[i]._loadPath);
+		var kw = '';
+		if (sEngines[i]._metaData.hasOwnProperty('alias')){
+			if (sEngines[i]._metaData.alias !== null) kw = '<br><em>Keyword:</em>&nbsp;' + sEngines[i]._metaData.alias;
+		}
+		var source = '', shortName = '';
+		if (sEngines[i].hasOwnProperty('_isAppProvided')){ // Fx79
+			source = '{built-in}';
+		}
+		if (sEngines[i].hasOwnProperty('_loadPath')){
+			source = sEngines[i]._loadPath;
+			source = source.replace('jar:[app]/omni.ja!browser/', '{built-in} ');
+			source = source.replace('[other]addEngineWithDetails:', '{built-in} ');
+		}
+		if (sEngines[i].hasOwnProperty('_shortName')){
+			var shortName = sEngines[i]._shortName;
+		} else {
+			var shortName = 'N/A';
+		}
+		sOneClicks.push(sVis + '|' + sTemp.substr(-2) + '|' + sEngines[i]._name + '|' + shortName + kw + '|' + source + '|' + sCheck);
 	}
 	sOneClicks.sort();
+	console.log(sOneClicks);
 	var out = document.getElementById('output');
 	var strOut = '<h2>Overview of Data From the File</h2>\n<h3>Default Search Engine</h3>\n<p>' + oSearch.metaData.searchDefault + '</p>\n<h3>One-Click Search Engines</h3>\n' +
-		'<table border="1" cellspacing="0" cellpadding="3"><thead><th>Search Engine Name</th><th>Unique Short Name</th><th>Source (_loadPath)</th></thead>\n<tbody>';
+		'<table border="1" cellspacing="0" cellpadding="3" id="visible"><thead><th>Search Engine Name</th><th>Unique Short Name</th><th>Source (_loadPath)</th></thead>\n<tbody>';
 	var sHid = '';
 	for (i=0; i<sOneClicks.length; i++){
-		if (sOneClicks[i].split('|')[0] === '0') strOut += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4].replace('jar:[app]/omni.ja!browser/', '{built-in} ') + '</td></tr>\n';
-		if (sOneClicks[i].split('|')[0] === '1') sHid += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4].replace('jar:[app]/omni.ja!browser/', '{built-in} ') + '</td></tr>\n';
+		if (sOneClicks[i].split('|')[0] === '0'){
+			if (sOneClicks[i].split('|')[5] == '1'){
+				strOut += '<tr><td class="check">' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4] + '</td></tr>\n';
+			} else {
+				strOut += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4] + '</td></tr>\n';
+			}
+		} 
+		if (sOneClicks[i].split('|')[0] === '1') sHid += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4] + '</td></tr>\n';
 	}
 	out.innerHTML = strOut + '</tbody></table>\n';
 	if (sHid.length > 0) {
-		out.insertAdjacentHTML('beforeend', '<h3>Removed Default Search Engines</h3>\n<table border="1" cellspacing="0" cellpadding="3"><thead><th>Search Engine Name</th><th>Unique Short Name</th><th>Source (_loadPath)</th></thead>\n<tbody>' + sHid + '</tbody></table>\n');
+		out.insertAdjacentHTML('beforeend', '<h3>Removed Default Search Engines</h3>\n<table border="1" cellspacing="0" cellpadding="3" id="removed"><thead><th>Search Engine Name</th><th>Unique Short Name</th><th>Source (_loadPath)</th></thead>\n<tbody>' + sHid + '</tbody></table>\n');
 	}
+	var visDefault = '';
+	if (oSearch.hasOwnProperty('visibleDefaultEngines')) visDefault = oSearch.visibleDefaultEngines.join(', ');
+	if (oSearch.metaData.hasOwnProperty('visibleDefaultEngines')) visDefault = oSearch.metaData.visibleDefaultEngines.replace(/,/gi, ', '); // Fx79
+	out.insertAdjacentHTML('beforeend', '<h3>Other Data from the File</h3>\n<p>JSON format version: ' + oSearch.version + '<br>Firefox version / build: ' + oSearch.appVersion + ' / ' + oSearch.buildID + '<br>Firefox locale: ' + oSearch.locale + '<br>Locale built-in search engines: ' + visDefault + '</p>');
 }
 function SaveJSON(){
 	// Check the JSON
@@ -198,6 +229,15 @@ function loadFile(inp){
 #output {border-top:2px solid #000; font-family:sans-serif;}
 #output:not(:empty) {border-bottom:2px solid #000;}
 #output table {margin-bottom: 30px;}
+#output td {vertical-align: top; position: relative;}
+#visible td:first-of-type {padding-left: 20px;}
+.check::before {
+	content: "✓";
+	position: absolute;
+	left: 2px;
+	top: 0;
+	color: green;
+}
 @media screen { #output {padding-left:0.5in} }
 </style>
 </body>

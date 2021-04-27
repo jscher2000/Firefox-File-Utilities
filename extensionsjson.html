@@ -37,13 +37,13 @@
 	<option value="ymd">yyyy-mm-dd</option>
 	<option value="dmy">dd/mm/yyyy</option>
 	<option value="mdy">mm/dd/yyyy</option>
-</select> <button onclick="showDetails()" id="btnParse" disabled>Generate Table</button> <button onclick="SaveTable()" id="btnSave" disabled>Save Table</button></p>
+</select> <label><input type="checkbox" id="chkPerms">&nbsp;List Permissions</label> <button onclick="showDetails()" id="btnParse" disabled>Generate Table</button> <button onclick="SaveTable()" id="btnSave" disabled>Save Table</button></p>
 <div id="output">
 </div>
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2019 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2019-12-29.</p>
+<p>Copyright &copy; 2020 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2020-10-05. [<a href="extensionsjson_20191229.html">Previous version</a>]</p>
 </footer>
 <script type="text/javascript">
 // Clean up form controls on reload (i.e., not bypassing cache)
@@ -63,6 +63,7 @@ function readfile(f){
 }
 var baseurl = 'https://addons.mozilla.org/api/v4/addons/search/?app=firefox&amp;guid=';
 var arrExts = [], arrLookup = [];
+var listPerms = false;
 function showDetails(){
 	var txt = document.getElementById('drop_zone').value;
 	try {
@@ -73,6 +74,7 @@ function showDetails(){
 	}
 	arrExts = oFile.addons; // Array of objects
 	var sType = '', arrOut = [], sTemp = '';
+	listPerms = document.getElementById('chkPerms').checked;
 	for (var i=0; i<arrExts.length; i++){
 		// Build description
 		if (arrExts[i].rootURI.indexOf('resource://search-extensions/') > -1) sType = 'SearchXPI';
@@ -110,7 +112,11 @@ function showDetails(){
 		} else {
 			arrLookup.push(i);
 		}
-		sTemp += '</td></tr>';
+		if (listPerms){
+			sTemp += '</td><td></td></tr>';
+		} else {
+			sTemp += '</td></tr>';
+		}
 		arrOut.push(sTemp);
 	}
 	document.getElementById('btnSave').removeAttribute('disabled');
@@ -118,10 +124,16 @@ function showDetails(){
 	arrOut.sort();
 	// Write out the contents
 	var out = document.getElementById('output');
-	var strOut = '<style>table {border:1px solid #000; border-collapse: collapse;} tr.recom {background-color: #f0fff0;} ' + 
-		'tr[sortby*="true"] {background-color: #eee;} th, td {border:1px solid #000; padding: 3px; text-align: left; vertical-align: top;}</style>\n' + 
-		'<h2>Highlights of extensions.json</h2>\n' +
-		'<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Type &amp; Status</th><th style="width:40%">ID and Source</th></thead>\n<tbody>';
+	var strOut = '<style>table {border:1px solid #000; border-collapse: collapse;} tr.recom {background-color: #f0fff0;} tr.spons {background-color: #f0f8ff;} ' + 
+		'tr[sortby*="true"] {background-color: #eee;} th, td {border:1px solid #000; padding: 3px; text-align: left; vertical-align: top;} ' +
+		'td p {margin: 0 0 6px; } .hostslist {max-height: 6em; overflow: hidden; transition: all 250ms ease-in-out 750ms;} ' + 
+		'.hostslist:hover {max-height: 99em; overflow: hidden;}</style>\n' + 
+		'<h2>Highlights of extensions.json</h2>\n';
+	if (listPerms){
+		strOut += '<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Type &amp; Status</th><th style="width:30%">ID and Source</th><th style="width:20%">Permissions</th></thead>\n<tbody>';
+	} else {
+		strOut += '<table><thead><th>Name and Version</th><th>Installed</th><th>Updated</th><th>Type &amp; Status</th><th style="width:40%">ID and Source</th></thead>\n<tbody>';
+	}
 	out.innerHTML = strOut + arrOut.join('\n') + '</tbody></table>\n';
 	window.setTimeout(function(){addAMOLinks(0);}, 1000);
 }
@@ -140,6 +152,33 @@ function fmtD(strDate){
 		default:
 			return d.toLocaleString().replace(', ', '<br>');
 	}
+}
+// From https://github.com/mozilla/gecko/blob/central/browser/locales/en-US/chrome/browser/browser.properties
+permDesc = {
+	"bookmarks": "Read and modify bookmarks",
+	"browserSettings": "Read and modify browser settings",
+	"browsingData": "Clear recent browsing history, cookies, and related data",
+	"clipboardRead": "Get data from the clipboard",
+	"clipboardWrite": "Input data to the clipboard",
+	"devtools": "Extend developer tools to access your data in open tabs",
+	"dns": "Access IP address and hostname information",
+	"downloads": "Download files and read and modify the browser’s download history",
+	"downloads.open": "Open files downloaded to your computer",
+	"find": "Read the text of all open tabs",
+	"geolocation": "Access your location",
+	"history": "Access browsing history",
+	"management": "Monitor extension usage and manage themes",
+	"nativeMessaging": "Exchange messages with programs other than Firefox",
+	"notifications": "Display notifications to you",
+	"pkcs11": "Provide cryptographic authentication services",
+	"privacy": "Read and modify privacy settings",
+	"proxy": "Control browser proxy settings",
+	"sessions": "Access recently closed tabs",
+	"tabs": "Access browser tabs",
+	"tabHide": "Hide and show browser tabs",
+	"topSites": "Access browsing history",
+	"unlimitedStorage": "Store unlimited amount of client-side data",
+	"webNavigation": "Access browser activity during navigation"
 }
 function addAMOLinks(counter){
 	// Look up ID via the Add-ons site API and grab the source page URL
@@ -163,12 +202,63 @@ function addAMOLinks(counter){
 				var count = parseInt(request.responseURL.slice(request.responseURL.lastIndexOf('=') + 1));
 				if (respObj.results.length > 0){
 					document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', '<a href="' + respObj.results[0].url + '" target="_blank">' + respObj.results[0].url + '</a>');
-					if (respObj.results[0].is_recommended){
-						document.getElementById('ext_' + count).parentNode.className = 'recom';
-						document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', ' <em>Recommended</em>');
+					if (respObj.results[0].promoted !== null){
+						if (respObj.results[0].promoted.category.toLowerCase() == 'recommended'){
+							document.getElementById('ext_' + count).parentNode.className = 'recom';
+							document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', ' <em>Recommended</em>');
+						}
+						if (respObj.results[0].promoted.category.toLowerCase() == 'sponsored'){
+							document.getElementById('ext_' + count).parentNode.className = 'spons';
+							document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', ' <em>Verified</em>');
+						}
+					}
+					if (listPerms){
+						var oFiles = respObj.results[0].current_version.files;
+						var sPerms = '';
+						for (var ndx in oFiles) {
+							oFile = oFiles[ndx];
+							var arrHosts = [];
+							var arrAPIs1 = [];
+							var arrAPIs2 = [];
+							var sAllHosts = '';
+							for (var j=0; j<oFile.permissions.length; j++){
+								if ((oFile.permissions[j] == '<all_urls>' || oFile.permissions[j].indexOf('://*/') > -1)) {
+									if (sAllHosts == '') sAllHosts = '<p><b style="background:#ff8;">Access your data for all websites</b></p>\n';
+								} else {
+									if (oFile.permissions[j].indexOf('/') > -1){
+										sHost = oFile.permissions[j].replace(/</g, '&lt;').replace(/>/g, '&gt;');
+										sHost = sHost.replace(/:\/\/([\d\w\.\-\*]*)\//, '://<b>$1</b>/');
+										if (!arrHosts.includes(sHost)) arrHosts.push(sHost);
+									} else {
+										// TODO: parse for interesting ones
+										if (permDesc[oFile.permissions[j]] !== undefined){
+											if (!arrAPIs1.includes(permDesc[oFile.permissions[j]])) arrAPIs1.push(permDesc[oFile.permissions[j]]);
+										} else {
+											if (!arrAPIs2.includes(oFile.permissions[j].replace(/</g, '&lt;').replace(/>/g, '&gt;'))) arrAPIs2.push(oFile.permissions[j].replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+										}
+									}
+								}
+							}
+						}
+						sPerms += sAllHosts;
+						if (arrHosts.length > 0){
+							arrHosts.sort();
+							sPerms += '<p class="hostslist">' + 'Access your data for: ' + arrHosts.join(', ') + '</p>\n';
+						}
+						if (arrAPIs1.length > 0){
+							sPerms += '<p><b>' + arrAPIs1.join('</b></p><p><b>') + '</b></p>\n';
+						}
+						if (arrAPIs2.length > 0){
+							arrAPIs2.sort();
+							sPerms += '<p><i>' + 'Other API permissions:</i> ' + arrAPIs2.join(', ') + '</p>\n';
+						}
+						document.getElementById('ext_' + count).nextElementSibling.insertAdjacentHTML('beforeend', sPerms);
 					}
 				} else {
 					document.getElementById('ext_' + count).insertAdjacentHTML('beforeend', 'From: ' + arrExts[count].sourceURI + ' ("' + arrExts[count].location + '")');
+					if (listPerms){
+						document.getElementById('ext_' + count).nextElementSibling.insertAdjacentHTML('beforeend', '&nbsp;');
+					}
 				}
 				request = null;
 				if (count + 1 < arrExts.length) addAMOLinks(count + 1);
