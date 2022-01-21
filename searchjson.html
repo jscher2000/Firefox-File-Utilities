@@ -37,7 +37,7 @@
 </div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2020 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2020-07-31. <a href="/res/searchjson_orig.html">Original</a></p>
+<p>Copyright &copy; 2022 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2022-01-17. <a href="/res/searchjson_orig.html">Original</a></p>
 </footer>
 <script type="text/javascript">
 // Clean up form controls on reload (i.e., not bypassing cache)
@@ -102,36 +102,60 @@ function showDetails(){
 			sCheck = '0';
 			if (sEngines[i]._metaData.hidden === true) sVis = '1';
 		}
+		if (sEngines[i].hasOwnProperty('_shortName')){
+			var shortName = '<br>' + sEngines[i]._shortName;
+		} else {
+			var shortName = '';
+		}
 		var kw = '';
 		if (sEngines[i]._metaData.hasOwnProperty('alias')){
-			if (sEngines[i]._metaData.alias !== null) kw = '<br><em>Keyword:</em>&nbsp;' + sEngines[i]._metaData.alias;
+			if (sEngines[i]._metaData.alias !== null && sEngines[i]._metaData.alias.length > 0) kw = sEngines[i]._metaData.alias;
 		}
-		var source = '', shortName = '';
-		if (sEngines[i].hasOwnProperty('_isAppProvided')){ // Fx79
+		if (sEngines[i].hasOwnProperty('_definedAliases') && sEngines[i]._definedAliases.length > 0){
+			if (kw == '') kw = sEngines[i]._definedAliases.join(', ');
+			else kw += ', ' + sEngines[i]._definedAliases.join(', ');
+		}
+		if (kw == '') kw = '&ndash;';
+		var source = '';
+		if (sEngines[i].hasOwnProperty('_isAppProvided') && sEngines[i]._isAppProvided == true){ // Fx79
 			source = '{built-in}';
-		}
-		if (sEngines[i].hasOwnProperty('_loadPath')){
-			source = sEngines[i]._loadPath;
-			source = source.replace('jar:[app]/omni.ja!browser/', '{built-in} ');
-			source = source.replace('[other]addEngineWithDetails:', '{built-in} ');
-		}
-		if (sEngines[i].hasOwnProperty('_shortName')){
-			var shortName = sEngines[i]._shortName;
+		} else if (sEngines[i].hasOwnProperty('_extensionID') && sEngines[i]._extensionID != null && sEngines[i]._extensionID != 'set-via-user'){
+			source = 'Add-on ID: ' + sEngines[i]._extensionID;
 		} else {
-			var shortName = 'N/A';
+			if (source == '' && sEngines[i].hasOwnProperty('_loadPath')){
+				source = sEngines[i]._loadPath;
+				source = source.replace('jar:[app]/omni.ja!browser/', '{built-in} ');
+				source = source.replace('[other]addEngineWithDetails:set-via-user', '{Added via Settings page} ');
+			}
 		}
-		sOneClicks.push(sVis + '|' + sTemp.substr(-2) + '|' + sEngines[i]._name + '|' + shortName + kw + '|' + source + '|' + sCheck);
+		var templateUrl = '';
+		if (sEngines[i].hasOwnProperty('_urls')){
+			for (j=0; j<sEngines[i]._urls.length; j++){
+				if (sEngines[i]._urls[j].hasOwnProperty('type')){
+					if (sEngines[i]._urls[j].type.indexOf('application/x-suggestions+json') > -1){
+						templateUrl += '<br><em>Suggestions:</em>&nbsp;' + sEngines[i]._urls[j].template;
+					} else {
+						templateUrl += '<br><em>Path:</em>&nbsp;' + sEngines[i]._urls[j].template;
+					}
+				} else {
+					templateUrl += '<br><em>Path:</em>&nbsp;' + sEngines[i]._urls[j].template;
+				}
+			}
+		}
+		sOneClicks.push(sVis + '|' + sTemp.substr(-2) + '|' + sEngines[i]._name + shortName + '|' + kw + '|' + source + templateUrl + '|' + sCheck);
 	}
 	sOneClicks.sort();
 	console.log(sOneClicks);
 	var out = document.getElementById('output');
 	var strOut = '<h2>Overview of Data From the File</h2>\n<h3>Default Search Engine</h3>\n<p>' + oSearch.metaData.searchDefault + '</p>\n<h3>One-Click Search Engines</h3>\n' +
-		'<table border="1" cellspacing="0" cellpadding="3" id="visible"><thead><th>Search Engine Name</th><th>Unique Short Name</th><th>Source (_loadPath)</th></thead>\n<tbody>';
+		'<table border="1" cellspacing="0" cellpadding="3" id="visible"><thead><th>Search&nbsp;Engine Name</th><th>My Keyword(s)</th><th>Source (_loadPath)<br>Custom URLs</th></thead>\n<tbody>';
 	var sHid = '';
 	for (i=0; i<sOneClicks.length; i++){
 		if (sOneClicks[i].split('|')[0] === '0'){
 			if (sOneClicks[i].split('|')[5] == '1'){
-				strOut += '<tr><td class="check">' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4] + '</td></tr>\n';
+				// This isn't accurate
+				// strOut += '<tr><td class="check">' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4] + '</td></tr>\n';
+				strOut += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4] + '</td></tr>\n';
 			} else {
 				strOut += '<tr><td>' + sOneClicks[i].split('|')[2] + '</td><td>' + sOneClicks[i].split('|')[3] + '</td><td>' + sOneClicks[i].split('|')[4] + '</td></tr>\n';
 			}
@@ -145,7 +169,7 @@ function showDetails(){
 	var visDefault = '';
 	if (oSearch.hasOwnProperty('visibleDefaultEngines')) visDefault = oSearch.visibleDefaultEngines.join(', ');
 	if (oSearch.metaData.hasOwnProperty('visibleDefaultEngines')) visDefault = oSearch.metaData.visibleDefaultEngines.replace(/,/gi, ', '); // Fx79
-	out.insertAdjacentHTML('beforeend', '<h3>Other Data from the File</h3>\n<p>JSON format version: ' + oSearch.version + '<br>Firefox version / build: ' + oSearch.appVersion + ' / ' + oSearch.buildID + '<br>Firefox locale: ' + oSearch.locale + '<br>Locale built-in search engines: ' + visDefault + '</p>');
+	out.insertAdjacentHTML('beforeend', '<h3>Other Data from the File</h3>\n<p>JSON format version: ' + oSearch.version + '<br>Firefox locale: ' + oSearch.locale + '<br>Locale built-in search engines: ' + visDefault + '</p>');
 }
 function SaveJSON(){
 	// Check the JSON
@@ -230,6 +254,7 @@ function loadFile(inp){
 #output:not(:empty) {border-bottom:2px solid #000;}
 #output table {margin-bottom: 30px;}
 #output td {vertical-align: top; position: relative;}
+/* This is not accurate...
 #visible td:first-of-type {padding-left: 20px;}
 .check::before {
 	content: "✓";
@@ -238,6 +263,7 @@ function loadFile(inp){
 	top: 0;
 	color: green;
 }
+*/
 @media screen { #output {padding-left:0.5in} }
 </style>
 </body>

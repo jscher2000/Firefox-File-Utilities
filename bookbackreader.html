@@ -45,11 +45,12 @@
 <p><strong>JSON "Backup" Format:</strong> 
 	<label><input type="checkbox" id="chkAnnos">&nbsp;Clear Descriptions</label> <button onclick="SaveJSON()" id="btnSave" disabled>Save JSON</button><br>
 <button onclick="CheckJSON()" id="btnCheckJ" disabled>Check/Repair JSON</button> <span id="spanCheck"><em>For files Firefox cannot restore</em></span></p>
+<p><strong>Extract Tagged Bookmark List: </strong><button onclick="getTagged()" id="btnTagged" disabled>Get Tags</button></p><div id="tagsout" style="display:none; background-color: #fff;"></div> <button onclick="SaveTags()" id="btnSaveTags" disabled>Save Tagged List</button> (HTML format)
 <p><strong>Extract Keyworded Bookmark List: </strong><button onclick="getKeyw()" id="btnKeyw" disabled>Find Keywords</button></p><div id="keywout" style="display:none; background-color: #fff;"></div> <button onclick="SaveKeyw()" id="btnSaveKeyw" disabled>Save Keywords List</button> (HTML format)
 <p><strong>Extract Feeds (backups from Firefox 63 and earlier): </strong><button onclick="getRSS()" id="btnFeeds" disabled>Find Feeds</button></p><div id="feedout" style="display:none; background-color: #fff; border: 1px solid #ccc; padding:0 8px; height:300px; overflow-y:auto;"></div> <button onclick="SaveFeeds()" id="btnSaveFeeds" disabled>Save Feeds List</button> (plain text format)<textarea id="opmlout" style="display:none; width:100%; height:300px; margin-top:1em;"></textarea> <button onclick="SaveOPML()" id="btnOPML" disabled>Export OPML</button> (please also save the list format just in case)</div><!-- #main -->
 </article>
 <footer>
-<p>Copyright &copy; 2021 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2021-03-09. (<a href="bookbackreader_20181020.html">Oct. 20, 2018 version</a>) (<a href="bookbackreader_20191223.html">Dec. 23, 2019 version</a>)</p>
+<p>Copyright &copy; 2021 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). escapeHtmlEntities() function from Firefox (<a href="https://www.mozilla.org/en-US/MPL/2.0/">MPL 2.0</a>). No claim to your data! Updated 2021-06-23. (<a href="bookbackreader_20181020.html">Oct. 20, 2018 version</a>) (<a href="bookbackreader_20191223.html">Dec. 23, 2019 version</a>)</p>
 </footer>
 <script type="text/javascript">
 // Compatibility check
@@ -70,6 +71,8 @@ document.getElementById('drop_zone').value = '';
 document.getElementById('btnSave').setAttribute('disabled', 'disabled');
 document.getElementById('btnExport').setAttribute('disabled', 'disabled');
 document.getElementById('btnCheckJ').setAttribute('disabled', 'disabled');
+document.getElementById('btnTagged').setAttribute('disabled', 'disabled');
+document.getElementById('btnSaveTags').setAttribute('disabled', 'disabled');
 document.getElementById('btnKeyw').setAttribute('disabled', 'disabled');
 document.getElementById('btnSaveKeyw').setAttribute('disabled', 'disabled');
 document.getElementById('btnFeeds').setAttribute('disabled', 'disabled');
@@ -341,7 +344,7 @@ function getKeyw(){
 		}
 	}
 	if (keywhtml.length > 0){
-		document.getElementById('keywout').innerHTML = '<table id="keyw"><thead><tr><th>Keyword</th><th>Title</th><th>URL</th></thead>\n<tbody>' + keywhtml.sort().join('\n') + '</tbody></table>\n<style>#keyw{border:1px solid #000; border-collapse:collapse;}#keyw th,#keyw td{border:1px solid #000; padding:2px 6px; text-align:left;}</style>';
+		document.getElementById('keywout').innerHTML = '<table id="keyw"><thead><tr><th>Keyword</th><th>Title</th><th>URL</th></tr></thead>\n<tbody>' + keywhtml.sort().join('\n') + '</tbody></table>\n<style>#keyw{border:1px solid #000; border-collapse:collapse;}#keyw th,#keyw td{border:1px solid #000; padding:2px 6px; text-align:left;}</style>';
 		// Show output
 		document.getElementById('keywout').style.display = 'block';
 		// Enable button
@@ -396,6 +399,82 @@ function SaveKeyw(){
 		);		
 	} else {
 		window.alert('The keyword table seems to be missing, sorry.');
+		return;
+	}
+}
+
+var tagshtml;
+function getTagged(){
+	try {
+		oBmks = JSON.parse(document.getElementById('drop_zone').value);
+	} catch (err) {
+		window.alert('Cannot find tagged bookmarks because the text does not appear to be valid JSON-format data. Sorry.');
+		return;
+	}
+	// Extract tagged bookmarks and make a table
+	tagshtml = [];
+	for (var i=0; i<oBmks.children.length; i++){
+		if (oBmks.children[i].hasOwnProperty('children')){
+			lastFolder = '';
+			addTagged(oBmks.children[i]);
+		}
+	}
+	if (tagshtml.length > 0){
+		document.getElementById('tagsout').innerHTML = '<table id="tagged"><thead><tr><th>Title</th><th>URL</th><th>Tags</th></tr></thead>\n<tbody>' + tagshtml.sort().join('\n') + '</tbody></table>\n<style>#tagged{border:1px solid #000; border-collapse:collapse;}#tagged th,#tagged td{border:1px solid #000; padding:2px 6px; text-align:left;}</style>';
+		// Show output
+		document.getElementById('tagsout').style.display = 'block';
+		// Enable button
+		document.getElementById('btnSaveTags').removeAttribute('disabled');
+	} else {
+		window.alert('No tagged bookmarks found in the JSON code, sorry.');
+	}
+}
+function addTagged(oPlace){
+	var pType = oPlace.type;
+	var pTitle = oPlace.title;
+	var annos = oPlace.annos;
+	if (pType == 'text/x-moz-place-container'){ // Folder or live bookmark
+		if (annos && JSON.stringify(annos).indexOf('"name":"livemark/feedURI"') > -1){
+			// Ignore
+		} else {
+			var arrChildren = oPlace.children;
+			if (arrChildren){
+				for (var i=0; i<arrChildren.length; i++){
+					lastFolder = pTitle;
+					addTagged(arrChildren[i]);
+				}
+			}
+		}
+	}
+	if (pType == 'text/x-moz-place'){
+		// This is a bookmark
+		var pTags = oPlace.tags;
+		if (pTags && pTags.length > 0){
+			pTags = escapeHtmlEntities(pTags);
+			if (oPlace.title.length === 0) pTitle = '[Untitled]';
+			else pTitle = escapeHtmlEntities(pTitle);
+			var pURI = oPlace.uri;
+			tagshtml.push('<tr><td>' + pTitle + '</td><td>' + pURI + '</td><td>' + pTags + '</td></tr>');
+		}
+	}
+}
+function SaveTags(){
+	// Check that we have output
+	var list = document.getElementById('tagsout').innerHTML;
+	if (list.length > 0){
+		// Make blob and trigger save dialog
+		var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+		var fnend = '_tagged.html';
+		if (fn.lastIndexOf('_') > -1) var fnout = fn.substr(0, fn.lastIndexOf('_')) + fnend;
+		else fnout = fn + fnend;
+		saveAs(
+			new Blob(
+				  [list]
+				, {type: 'text/html;charset=UTF-8'}
+			), fnout
+		);		
+	} else {
+		window.alert('The tagged bookmarks table seems to be missing, sorry.');
 		return;
 	}
 }
@@ -528,6 +607,7 @@ function readfile(f){
 			document.getElementById('btnSave').removeAttribute('disabled');
 			document.getElementById('btnExport').removeAttribute('disabled');
 			document.getElementById('btnCheckJ').removeAttribute('disabled');
+			document.getElementById('btnTagged').removeAttribute('disabled');
 			document.getElementById('btnKeyw').removeAttribute('disabled');
 			document.getElementById('btnFeeds').removeAttribute('disabled');
 		} catch (err) {
