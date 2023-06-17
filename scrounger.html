@@ -149,6 +149,10 @@ function buildListJSON(obj, outer){
 		tabs = winds[i].tabs;
 		for (j=0; j < tabs.length; j++) {
 			//console.log('Window '+ (i+1) + ' Tab ' + (j+1));
+			// Empty tabs (i.e., with no entries) are skipped
+		        if(tabs[j].entries.length === 0) {
+                                continue;
+                        }
 			if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
 			else {
 				if (tabs[j].hasOwnProperty('userContextId') && tabs[j].userContextId != 0) {
