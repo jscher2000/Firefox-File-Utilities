@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+<title>Session History Scrounger for Firefox (with lz4 support) &mdash; Fx File Utilities</title>
+<link rel="stylesheet" href="styles.css" type="text/css">
+</head>
+<body>
+<nav>
+<ul>
+<li id="logo">Fx File Utilities</li>
+<li><span id="current">Session History</span></li>
+<li><a href="bookbackreader.html" title="Save JSON or Export HTML from bookmark backup files">Bookmark Backup</a></li>
+<li><a href="searchjson.html" title="Read out search engine details">Search Engines</a></li>
+<li><a href="extensionsjson.html" title="Read out extension details">Extensions</a></li>
+</ul>
+</nav>
+<header>
+<h1>Session History Scrounger for Firefox</h1>
+</header>
+<article>
+<div id="main">
+<p><em>Firefox creates various session history files as you browse, and then at shutdown creates sessionstore.jsonlz4. In Firefox 56+, the files are compressed using Mozilla's flavor of LZ4 compression (.jsonlz4 or .baklz4 file extension). The JSON data contains rich detail about your session, but this page is targeted toward extracting just the page URLs.</em></p>
+<h2>Step 1: Load File</h2>
+<p>Drag and drop one session history file onto the empty text box<span> (<button onclick="document.getElementById('sesshelp').style.display='block'; this.parentNode.style.display='none';">HELP</button>)</span>, or use the Browse... button on the right. This file is not sent to the network, it is only read within this page in Firefox.</p>
+<div id="sesshelp" style="display:none; background-color:#ffc; padding:0 1em; border:1px solid #333; margin-bottom:1em;">
+<p>This tool can read URLs out of the following types of session history files:</p>
+<ul>
+	<li>Firefox 56+ compressed files such as recovery.jsonlz4 or previous.jsonlz4 from: [profile]\sessionstore-backups</li>
+	<li>Firefox 45-55 uncompressed files such as recovery.js or previous.js from: [profile]\sessionstore-backups</li>
+	<li>Session Manager 2.x .session files stored from: [profile]\sessions</li>
+	<li>Tab Session Manager "storage.js" file from: [profile]\browser-extension-data\Tab-Session-Manager@sienori (cannot be converted to a native Firefox sessionstore.js-format file)</li>
+	<li>Session Boss "storage.js" file from: [profile]\browser-extension-data\sessionboss@william.wong (cannot be converted to a native Firefox sessionstore.js-format file)</li>
+	<li>OneTab "storage.js" file from: [profile]\browser-extension-data\extension@one-tab.com (cannot be converted to a native Firefox sessionstore.js-format file)</li>
+</ul>
+<p>If you are unfamiliar with how to locate your [profile] folder, please see: <a href="https://support.mozilla.org/kb/profiles-where-firefox-stores-user-data" target="_blank">Profiles - Where Firefox stores your bookmarks, passwords and other user data</a> on Mozilla Support.</p>
+</div>
+<div id="uploaddiv">
+	<textarea id="drop_zone" ondrop="drop_handler(event);"  ondragover="dragover_handler(event);"  ondragend="dragend_handler(event);" style="width:80%" autocomplete="false" placeholder="Drop file here"></textarea>
+	<div style="position:absolute; right:0; top:0; width:calc(20% - 18px); cursor: pointer;" onclick="document.querySelector('#btnBrowse').click();";>
+		<p style="margin-top:2em; text-align:center;">Or open using: <br><br><input type="file" id="btnBrowse" onchange="loadFile(this);" style="width: 80px"></p>
+	</div>
+</div>
+<p><em>Note: To scrounge a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
+<h2>Step 2: Extract URLs / Save Session Links</h2>
+<p id="scrounge_options"><strong>HTML list options:</strong> <label><input type="checkbox" id="chkCTabs" checked>&nbsp;Include Closed Tabs</label> <label><input type="checkbox" id="chkCWins" checked>&nbsp;Include Closed Windows</label> <label><input type="checkbox" id="chkBFH" checked>&nbsp;Include Back-Forward History</label></p>
+<p><strong>HTML list commands:</strong> <button onclick="parsejson(false)" id="btnScrounge" disabled>Scrounge URLs</button> (<em>Fallback:</em> <button onclick="parsejson(true)" id="btnDumblist" disabled>Unstructured URL list</button>) <button onclick="SaveList()" id="btnSave" disabled>Save List</button></p>
+<p><strong>JSON file:</strong> <button onclick="SaveJSON()" id="btnJSON" disabled>Save Uncompressed JSON (sessionstore.js format)</button> <button onclick="SaveJSONEmbed()" id="btnEmbed" disabled>Save Embedded Session (first found only)</button> <button onclick="SaveJSONText()" id="btnText" disabled>Save Uncompressed JSON as text</button></p>
+<div id="output" style="border-top:2px solid #000;">
+<style type="text/css">
+.bhtoggle {cursor:pointer;}
+.bhtoggle:hover::after {content: " {click to toggle display}"; color: blue;}
+.backhist {margin-left: 2.25em}
+.backhist > div {display:none;}
+.urllist > p > span {font-size: 0.75em;}</style></style>
+</style>
+<script type="text/javascript">
+function toggleBH(el){
+	var tgtdiv = el.nextElementSibling;
+	if (tgtdiv.style.display != 'block') tgtdiv.style.display = 'block';
+	else tgtdiv.style.display = '';
+}
+</script>
+<p class="attrib">Extracted using <a href="https://www.jeffersonscher.com/ffu/scrounger.html">https://www.jeffersonscher.com/ffu/scrounger.html</a></p>
+</div>
+</div><!-- #main -->
+</article>
+<footer>
+<p>Copyright &copy; 2020 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). No claim to your data! Updated 2020-11-28. (<a href="scrounger_previous.html">Previous Version</a>; <a href="scrounger_20180826.html">Older Logic</a>)</p>
+</footer>
+<script type="text/javascript">
+// Compatibility check
+if (typeof(window.TextDecoder) !== 'function'){
+	var p1 = document.createElement('p');
+	p1.setAttribute('style', 'border:3px solid red; padding:12px 30px;');
+	p1.innerHTML = 'Unfortunately, this tool does not work in your current browser. Sorry. Please try Firefox, Chrome, Chromium or Opera instead. <br>' +
+		'(IE and Edge do not support <a href="https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder#Browser_compatibility">TextDecoder</a>. ' +
+		'IE also does not support <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray#Browser_compatibility">TypedArray.slice()</a>; unclear whether Edge or Safari supports it.)';
+	document.body.insertBefore(p1, document.body.firstChild);
+}
+/* 
+   If you are reading this comment, perhaps you might want to polyfill the missing functionality? Here's a start:
+   https://github.com/inexorabletash/text-encoding/
+*/
+// Clean up form controls on reload (i.e., not bypassing cache)
+document.getElementById('drop_zone').value = '';
+document.getElementById('btnScrounge').setAttribute('disabled', 'disabled');
+document.getElementById('btnDumblist').setAttribute('disabled', 'disabled');
+document.getElementById('btnSave').setAttribute('disabled', 'disabled');
+document.getElementById('btnJSON').setAttribute('disabled', 'disabled');
+document.getElementById('btnEmbed').setAttribute('disabled', 'disabled');
+document.getElementById('btnText').setAttribute('disabled', 'disabled');
+// Functions used in the page
+function parsejson(blnDumblist){
+	if (document.getElementById('scrounged')){
+		if(!confirm('Remove previous list of windows and tabs now?')) return;
+		document.getElementById('scrounged').remove();
+		if (document.getElementById('msgproc')) document.getElementById('msgproc').remove();
+	}
+	var txt = document.getElementById('drop_zone');
+	if (txt.value.length > 0){
+		document.getElementById('btnScrounge').setAttribute('disabled', 'disabled');
+		document.getElementById('btnDumblist').setAttribute('disabled', 'disabled');
+		document.getElementById('btnScrounge').insertAdjacentHTML('afterend', ' <span id="msgproc" style="font-style:italic">Processing...</span> ');
+		if (txt.value.indexOf('{"sessions":') === 0 && txt.value.indexOf('{"tabs":[') < 0) buildTSMList(txt);
+		else if (txt.value.indexOf('{"backupSessionStore":') === 0) buildSBossList(txt);
+		else if (txt.value.indexOf('{"state":"{\\"tabGroups\\":') === 0) buildOneTabList(txt);
+		else if (blnDumblist) buildURLList(txt);
+		else {
+			try {
+				var oSess = JSON.parse(txt.value);
+			} catch (err){
+				console.log(err);
+				oSess = null;
+			}
+			if (oSess != null) {
+				console.log('Calling buildListJSON()');
+				buildListJSON(oSess, true);
+			} else {
+				console.log('Calling buildList()');
+				buildList(txt);
+			}
+		}
+	}
+	else alert('Session history file contents could not be read?');
+}
+function scrub(t){
+	if (t.indexOf('data:') == 0 || t.indexOf('view-source:data:') == 0) return 'data-URI';
+	t=t.replace(/&/g,'&amp;'); t=t.replace(/>/g,'&gt;'); t=t.replace(/</g,'&lt;');
+	return t;
+} 
+var cleanQuotes = function(string){
+	return string.replace(/\\"/g, '"');
+}
+var outJ = new Array();
+function buildListJSON(obj, outer){
+	if (outer === true){
+		var finfo = document.querySelectorAll('#fileinfo span');
+		document.getElementById('output').insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session History</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n</div>');
+	} else {
+		outJ.push('<div style="margin-left:2.25em; border-left: 3px double green; padding-left: 12px;">\n<h1><em>Embedded Session</em></h1>');
+	}
+	var blnCTabs = document.getElementById('chkCTabs').checked;
+	var blnCWins = document.getElementById('chkCWins').checked;
+	var blnBFH = document.getElementById('chkBFH').checked;
+	var winds, tabs, taburls, i, j, k, last, eSess, page=0, tabcount=0, txtPrivate = '';
+	// Current session open windows array
+	winds = obj.windows;
+	for (i=0; i < winds.length; i++) {
+		if (i==0) outJ.push('<div>\n  <h2>Open Windows</h2>');
+		if (winds[i].isPrivate) txtPrivate = ' (Private)';
+		else txtPrivate = '';
+		outJ.push('  <h3 style=\'border-bottom:1px solid #000\'>Open Window ' + (i+1) + txtPrivate + '</h3>\n  <div style=\'margin-left:2.25em\'>');
+		// Current window open tabs array
+		tabs = winds[i].tabs;
+		for (j=0; j < tabs.length; j++) {
+			//console.log('Window '+ (i+1) + ' Tab ' + (j+1));
+			if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+			else {
+				if (tabs[j].hasOwnProperty('userContextId') && tabs[j].userContextId != 0) {
+					txtPrivate =  ' [Container ID ' + tabs[j].userContextId + ']';
+				} else txtPrivate = '';
+			}
+			outJ.push('    <h4>Tab ' + (j+1) + txtPrivate + '</h4>\n    <div class=\'urllist\'>');
+			tabcount++;
+			// Current tab back-forward URLs array
+			taburls = tabs[j].entries.slice();
+			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+			// Output indexed page
+			last = taburls.splice(tabs[j].index - 1, 1);
+			last[0]['last'] = tabs[j].lastAccessed;
+			pushentry(last[0]);
+			page++;
+			if (blnBFH){
+				// Output other pages, if any
+				if (taburls.length > 0){
+					taburls.reverse();
+					for (k=0; k<taburls.length; k++) {
+						if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+						pushentry(taburls[k]);
+						page++;
+						if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+					}
+				}
+			}
+			outJ.push('    </div><!--End Tab-->');
+			// Got an embedded session? iterate!
+			if (last[0].url === 'about:sessionrestore'){
+				try {
+					eSess = tabs[j].formdata.id.sessionData;
+					if (eSess) buildListJSON(eSess, false);
+				} catch(err){}
+			}
+		}
+		outJ.push('  </div><!--End Open Tabs-->');
+		// Current window closed tabs array
+		tabs = winds[i]._closedTabs;
+		for (j=0; j < tabs.length; j++) {
+			if (j==0) outJ.push('  <div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+			if (blnCTabs){
+				if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+				else {
+					if (tabs[j].state.hasOwnProperty('userContextId') && tabs[j].state.userContextId != 0) {
+						txtPrivate =  ' [Container ID ' + tabs[j].state.userContextId + ']';
+					} else txtPrivate = '';
+				}
+				outJ.push('    <h4>Closed Tab ' + (j+1) + txtPrivate + '</h4>\n    <div class=\'urllist\'>'); 
+				// Current tab back-forward URLs array
+				taburls = tabs[j].state.entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].state.index - 1, 1);
+				last[0]['last'] = tabs[j].state.lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
+				}
+				outJ.push('    </div><!--End Tab-->');
+				// Got an embedded session? iterate!
+				if (last[0].url === 'about:sessionrestore'){
+					try {
+						eSess = tabs[j].formdata.id.sessionData;
+						if (eSess) buildListJSON(eSess, false);
+					} catch(err){}
+				}
+			} else {
+				if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
+			}
+		}
+		if (tabs.length > 0) outJ.push('  </div><!--End Closed Tabs-->');
+	}
+	if (winds.length > 0) outJ.push('</div><!--End Open Windows-->');
+	// Current session closed windows array
+	try {
+		winds = obj._closedWindows;
+	} catch (err) {
+		winds = [];
+	}
+	for (i=0; i < winds.length; i++) {
+		if (i==0) outJ.push('<div>\n<h2>Closed Windows</h2>');
+		if (blnCWins){
+			outJ.push('  <h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + (i+1) + '</h3>\n  <div style=\'margin-left:2.25em\'>'); 
+			// Current window open tabs array
+			tabs = winds[i].tabs;
+			for (j=0; j < tabs.length; j++) {
+				if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+				else {
+					if (tabs[j].hasOwnProperty('userContextId') && tabs[j].userContextId != 0) {
+						txtPrivate =  ' [Container ID ' + tabs[j].userContextId + ']';
+					} else txtPrivate = '';
+				}
+				outJ.push('    <h4>Tab ' + (j+1) + txtPrivate + '</h4>\n    <div class=\'urllist\'>');
+				tabcount++;
+				// Current tab back-forward URLs array
+				taburls = tabs[j].entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].index - 1, 1);
+				last[0]['last'] = tabs[j].lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
+				}
+				outJ.push('    </div><!--End Tab-->');
+			}
+			outJ.push('  </div><!--End Open Tabs-->');
+			// Current window closed tabs array
+			tabs = winds[i]._closedTabs;
+			for (j=0; j < tabs.length; j++) {
+				if (j==0) outJ.push('  <div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+				if (blnCTabs){
+					if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+					else {
+						if (tabs[j].state.hasOwnProperty('userContextId') && tabs[j].state.userContextId != 0) {
+							txtPrivate =  ' [Container ID ' + tabs[j].state.userContextId + ']';
+						} else txtPrivate = '';
+					}
+					outJ.push('    <h4>Closed Tab ' + (j+1) + txtPrivate + '</h4>\n    <div class=\'urllist\'>');
+					tabcount++;
+					// Current tab back-forward URLs array
+					taburls = tabs[j].state.entries.slice();
+					//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+					// Output indexed page
+					last = taburls.splice(tabs[j].state.index - 1, 1);
+					last[0]['last'] = tabs[j].state.lastAccessed;
+					pushentry(last[0]);
+					page++;
+					if (blnBFH){
+						// Output other pages, if any
+						if (taburls.length > 0){
+							taburls.reverse();
+							for (k=0; k<taburls.length; k++) {
+								if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
+								pushentry(taburls[k]);
+								page++;
+								if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+							}
+						}
+					}
+					outJ.push('    </div><!--End Tab-->');
+				} else {
+					if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
+				}
+			}
+			if (tabs.length > 0) outJ.push('  </div><!--End Closed Tabs-->');
+		} else {
+			if (i==0) outJ.push('<p>(Skipping ' + winds.length + ' windows)</p>');
+		}
+	}
+	if (winds.length > 0) outJ.push('</div><!--End Closed Windows-->');
+	// Last session open windows array
+	try {
+		winds = obj.lastSessionState.windows;
+	} catch(err) {
+		winds = [];
+	}
+	for (i=0; i < winds.length; i++) {
+		if (i==0) outJ.push('<h2 style=\'border-top:1px solid #888\'>Tabs from "Last Session State"</h2>\n<div>\n<h2>Open Windows</h2>');
+		outJ.push('<h3 style=\'border-bottom:1px solid #000\'>Open Window ' + (i+1) + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
+		// Current window open tabs array
+		tabs = winds[i].tabs;
+		for (j=0; j < tabs.length; j++) {
+			if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+			else {
+				if (tabs[j].hasOwnProperty('userContextId') && tabs[j].userContextId != 0) {
+					txtPrivate =  ' [Container ID ' + tabs[j].userContextId + ']';
+				} else txtPrivate = '';
+			}
+			outJ.push('    <h4>Tab ' + (j+1) + txtPrivate + '</h4>\n    <div class=\'urllist\'>');
+			tabcount++;
+			// Current tab back-forward URLs array
+			taburls = tabs[j].entries.slice();
+			//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+			// Output indexed page
+			last = taburls.splice(tabs[j].index - 1, 1);
+			last[0]['last'] = tabs[j].lastAccessed;
+			pushentry(last[0]);
+			page++;
+			if (blnBFH){
+				// Output other pages, if any
+				if (taburls.length > 0){
+					taburls.reverse();
+					for (k=0; k<taburls.length; k++) {
+						if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+						pushentry(taburls[k]);
+						page++;
+						if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+					}
+				}
+			}
+			outJ.push('</div>');
+		}
+		outJ.push('</div>');
+		// Current window closed tabs array
+		tabs = winds[i]._closedTabs;
+		for (j=0; j < tabs.length; j++) {
+			if (j==0) outJ.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+			if (blnCTabs){
+				if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+				else {
+					if (tabs[j].state.hasOwnProperty('userContextId') && tabs[j].state.userContextId != 0) {
+						txtPrivate =  ' [Container ID ' + tabs[j].state.userContextId + ']';
+					} else txtPrivate = '';
+				}
+				outJ.push('<h4>Closed Tab ' + (j+1) + txtPrivate + '</h4>\n<div class=\'urllist\'>'); 
+				// Current tab back-forward URLs array
+				taburls = tabs[j].state.entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].state.index - 1, 1);
+				last[0]['last'] = tabs[j].state.lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
+				}
+			} else {
+				if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
+			}
+			outJ.push('</div>');
+		}
+		outJ.push('</div>');
+	}
+	if (winds.length > 0) outJ.push('</div>');
+	// Last session closed windows array
+	try {
+		winds = obj.lastSessionState._closedWindows;
+	} catch(err) {
+		winds = [];
+	}
+	for (i=0; i < winds.length; i++) {
+		if (i==0) outJ.push('<div>\n<h2>Closed Windows</h2>');
+		if (blnCWins){
+			outJ.push('<h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + (i+1) + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
+			// Current window open tabs array
+			tabs = winds[i].tabs;
+			for (j=0; j < tabs.length; j++) {
+				if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+				else {
+					if (tabs[j].hasOwnProperty('userContextId') && tabs[j].userContextId != 0) {
+						txtPrivate =  ' [Container ID ' + tabs[j].userContextId + ']';
+					} else txtPrivate = '';
+				}
+				outJ.push('    <h4>Tab ' + (j+1) + txtPrivate + '</h4>\n    <div class=\'urllist\'>');
+				tabcount++;
+				// Current tab back-forward URLs array
+				taburls = tabs[j].entries.slice();
+				//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+				// Output indexed page
+				last = taburls.splice(tabs[j].index - 1, 1);
+				last[0]['last'] = tabs[j].lastAccessed;
+				pushentry(last[0]);
+				page++;
+				if (blnBFH){
+					// Output other pages, if any
+					if (taburls.length > 0){
+						taburls.reverse();
+						for (k=0; k<taburls.length; k++) {
+							if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+							pushentry(taburls[k]);
+							page++;
+							if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+						}
+					}
+				}
+				outJ.push('</div>');
+			}
+			outJ.push('</div>');
+			// Current window closed tabs array
+			tabs = winds[i]._closedTabs;
+			for (j=0; j<tabs.length; j++) {
+				if (j==0) outJ.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+				if (blnCTabs){
+					if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
+					else {
+						if (tabs[j].state.hasOwnProperty('userContextId') && tabs[j].state.userContextId != 0) {
+							txtPrivate =  ' [Container ID ' + tabs[j].state.userContextId + ']';
+						} else txtPrivate = '';
+					}
+					outJ.push('<h4>Closed Tab ' + (j+1) + txtPrivate + '</h4>\n<div class=\'urllist\'>');
+					tabcount++;
+					// Current tab back-forward URLs array
+					taburls = tabs[j].state.entries.slice();
+					//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
+					// Output indexed page
+					last = taburls.splice(tabs[j].state.index - 1, 1);
+					last[0]['last'] = tabs[j].state.lastAccessed;
+					pushentry(last[0]);
+					page++;
+					if (blnBFH){
+						// Output other pages, if any
+						if (taburls.length > 0){
+							taburls.reverse();
+							for (k=0; k<taburls.length; k++) {
+								if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n<div>');
+								pushentry(taburls[k]);
+								page++;
+								if (k == (taburls.length-1)) outJ.push('        </div>\n      </div>');
+							}
+						}
+					}
+				} else {
+					if (j==0) outJ.push('<p>(Skipping ' + tabs.length + ' tabs)</p>');
+				}
+				outJ.push('</div>');
+			}
+		} else {
+			if (i==0) outJ.push('<p>(Skipping ' + winds.length + ' windows)</p>');
+		}
+		outJ.push('</div>');
+	}
+	if (winds.length > 0) outJ.push('</div>');
+	console.log('buildListJSON tab count=' + tabcount + ' and page count='+page);
+	if (outer === true) {
+		flush();
+		document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+		document.getElementById('btnSave').removeAttribute('disabled');
+	} else {
+		outJ.push('<!--End Session--></div>');
+	}
+}
+function pushentry(oEntry){
+	var strURL = oEntry.url;
+	var strTitle = oEntry.title || '[Title Not Available]';
+	if (strTitle.length == 0) strTitle = '[Title Not Available]';
+	if (oEntry.hasOwnProperty('last')){
+		var d = new Date(0);
+		d.setUTCSeconds((oEntry.last / 1000));
+		var strCurrent = ' <span>[' + d.toLocaleString() + ']</span>';
+	} else strCurrent = '';
+	outJ.push('        <p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong>' + strCurrent + '<br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+}
+function flush(){
+	//console.log(outJ.join('\n'));
+	document.getElementById('scrounged').insertAdjacentHTML('beforeend', outJ.join('\n'));
+	outJ = [];
+}
+function buildList(inp){
+	var out=new Array(); 
+	var inpval = inp.value, sess, n, windows, i, wtabs, m, tabs, j, strTemp, taburl, k, strURL, strTitle, tabcount=0, page=0;
+	var arrSess = inpval.split('"lastSessionState":{"version":[');
+	sess=arrSess[0].split('"_closedWindows":[');
+	for (n=0; n<sess.length; n++){
+		winds = sess[n].split('{"tabs":[');
+		if(n==0){
+			out.push('<h2>Open Windows</h2>');
+		} else {
+			if (winds.length > 1) out.push('<h2>Closed Windows</h2>');
+		}
+		for (i=1; i<winds.length; i++) {
+			if (n==1) out.push('<h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + i + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
+			else out.push('<h3 style=\'border-bottom:1px solid #000\'>Open Window ' + i + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
+			wtabs = winds[i].split('"_closedTabs":[');
+			for (m=0; m < wtabs.length; m++){
+				tabs = wtabs[m].split('{"entries":[');
+				for (j=1; j < tabs.length; j++) {
+					if (m==1 && j==1) out.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+					out.push('<h4>Tab ' + j + '</h4>\n<div class=\'urllist\'>');
+					tabcount++;
+					strTemp = tabs[j].split(',"children":[')[0]; // ignore children
+					taburls = strTemp.split('{"url":"');
+					for (k=taburls.length - 1; k >= 1; k--) {
+						strURL = taburls[k].substr(0, taburls[k].indexOf('","'));
+						strTitle = taburls[k].split('"title":"')[1] || '[Title Not Available]';
+						strTitle = strTitle.substr(0, strTitle.indexOf('","'));
+						if (strTitle.length == 0) strTitle = '[Title Not Available]';
+						if (k == taburls.length - 2) out.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back <em>(earlier pages visited in this tab)</em>:</span>\n<div>');
+						out.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong><br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+						page++;
+						if (taburls.length > 2 && k == 1) out.push('</div></div>');
+					}
+					out.push('</div>');
+				}
+				out.push('</div>');
+			}
+		}
+	}
+	if (arrSess.length > 1){
+		sess=arrSess[1].split('"_closedWindows":[');
+		for (n=0; n < sess.length; n++){
+			winds = sess[n].split('{"tabs":[');
+			if(n==0){
+				out.push('<h2 style=\'border-top:1px solid #888\'>Tabs from "Last Session State"</h2>');
+				out.push('<h2>Open Windows</h2>');
+			} else {
+				if (winds.length > 1) out.push('<h2>Closed Windows</h2>');
+			}
+			for (i=1; i < winds.length; i++) {
+				if (n==1) out.push('<h3 style=\'border-bottom:1px solid #000\'>Closed Window ' + i + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
+				else out.push('<h3 style=\'border-bottom:1px solid #000\'>Open Window ' + i + '</h3>\n<div style=\'margin-left:2.25em\'>'); 
+				wtabs = winds[i].split('"_closedTabs":[');
+				for (m=0; m < wtabs.length; m++){
+					tabs = wtabs[m].split('{"entries":[');
+					for (j=1; j < tabs.length; j++) {
+						if (m==1 && j==1) out.push('<div style=\'margin-left:2.25em\'><h4 style=\'border-top:1px solid #888\'>(Closed Tabs)</h4>');
+						out.push('<h4>Tab ' + j + '</h4>\n<div class=\'urllist\'>');
+						tabcount++;
+						strTemp = tabs[j].split(',"children":[')[0]; // ignore children
+						taburls = strTemp.split('{"url":"');
+						for (k=taburls.length - 1; k >= 1; k--) {
+							strURL = taburls[k].substr(0, taburls[k].indexOf('","'));
+							strTitle = taburls[k].split('"title":"')[1] || '[Title Not Available]';
+							strTitle = strTitle.substr(0, strTitle.indexOf('","'));
+							if (strTitle.length == 0) strTitle = '[Title Not Available]';
+							if (k == taburls.length - 2) out.push('<div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back <em>(earlier pages visited in this tab)</em>:</span>\n<div>');
+							out.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong><br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+							page++;
+							if (taburls.length > 2 && k == 1) out.push('</div></div>');
+						}
+						out.push('</div>');
+					}
+					out.push('</div>');
+				}
+			} 
+		}
+	}
+	var elOut = document.getElementById('output');
+	var finfo = document.querySelectorAll('#fileinfo span');
+	elOut.insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session History</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n' + out.join('\n') + '\n</div><!--hi-->');
+	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+	document.getElementById('btnSave').removeAttribute('disabled');
+	console.log('buildList  tab count=' + tabcount +' and page count='+page);
+}
+function buildTSMList(inp){
+	var out=new Array(); 
+	var inpval = inp.value;
+	var sess=inpval.split('{"windows":');
+	for (var n=1; n < sess.length; n++){
+		var namesplit = sess[n].split(',"name":"');
+		if (namesplit.length === 2){
+			out.push('<h2>Session '+n+': '+ namesplit[1].substr(0, namesplit[1].indexOf('","'))+'</h2>');
+		} else {
+			out.push('<h2>Session '+n+'</h2>');
+		}
+		var tabs = namesplit[0].split(',"windowId":');
+		out.push('<div style=\'margin-left:2.25em\'>');
+		for (var j=1; j < tabs.length; j++) {
+			out.push('<h4>Tab ' + j + '</h4>\n<div class=\'urllist\'>'); 
+			var strTemp = tabs[j];
+			var taburl = strTemp.split(',"url":"');
+			if (taburl.length === 2){
+				strURL = taburl[1].substr(0, taburl[1].indexOf('","'));
+				var tabtitle = strTemp.split(',"title":"');
+				if (tabtitle.length === 2){
+					strTitle = tabtitle[1].substr(0, tabtitle[1].indexOf('","')) || tabtitle[1].substr(0, tabtitle[1].indexOf('"}}'));
+				} else {
+					strTitle = '[Title Not Available]';
+				}
+				out.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong><br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+			} else {
+				out.push('<p>URL not found</p>');
+			}
+			out.push('</div>');
+		}
+		out.push('</div>');
+	}
+	var elOut = document.getElementById('output');
+	var finfo = document.querySelectorAll('#fileinfo span');
+	elOut.insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session Boss History</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n' + out.join('\n') + '\n</div><!--hi-->');
+	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+	document.getElementById('btnSave').removeAttribute('disabled');
+}
+function buildSBossList(inp){
+	var out = new Array(); 
+	var inpval = inp.value;
+	var types = inpval.split('{"userSessions":[');
+	for (var t=types.length - 1; t>=0; t--){
+		if (t==0) out.push('<h2>Automatic Backups</h2>');
+		if (t==1) out.push('<h2>User-Saved Sessions</h2>');
+		var sess = types[t].split('"sessionName":"');
+		for (var n=1; n < sess.length; n++){
+			var namesplit = sess[n].split('","windows":');
+			if (namesplit.length === 2){
+				out.push('<h3>Session '+n+': '+ namesplit[0]+'</h3>');
+			} else {
+				out.push('<h3>Session '+n+'</h3>');
+			}
+			var tabslists = sess[n].split('"tabsOfWindow":{')[1];
+			var pretabmap = tabslists.split('"tabMap":{')[0];
+			var tabs = pretabmap.split('"url":"');
+			out.push('<div style=\'margin-left:2.25em\'>');
+			for (var j=1; j < tabs.length; j++) {
+				out.push('<h4>Tab ' + j + '</h4>\n<div class=\'urllist\'>'); 
+				var strTemp = tabs[j];
+				var taburl = strTemp.split('","title":');
+				if (taburl.length === 2){
+					strURL = taburl[0];
+					var tabtitle = strTemp.split(',"title":"');
+					if (tabtitle.length === 2){
+						strTitle = tabtitle[1].substr(0, tabtitle[1].indexOf('","')) || tabtitle[1].substr(0, tabtitle[1].indexOf('"}}'));
+					} else {
+						strTitle = '[Title Not Available]';
+					}
+					out.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong><br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+				} else {
+					out.push('<p>URL not found?</p>');
+				}
+				out.push('</div>'); 
+			}
+			out.push('</div>');
+		}
+	}
+	var elOut = document.getElementById('output');
+	var finfo = document.querySelectorAll('#fileinfo span');
+	elOut.insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Tab Session Manager History</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n' + out.join('\n') + '\n</div><!--hi-->');
+	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+	document.getElementById('btnSave').removeAttribute('disabled');
+}
+function buildOneTabList(inp){
+	var out=new Array(); 
+	var inpval = inp.value;
+	var sess=inpval.split('\\"tabsMeta\\":');
+	for (var n=1; n < sess.length; n++){
+		var namesplit = sess[n-1].split(',\\"label\\":\\"');
+		if (namesplit.length === 2){
+			out.push('<h2>Tab Group '+n+': '+ namesplit[1].substr(0, namesplit[1].indexOf('\\"'))+'</h2>');
+		} else {
+			out.push('<h2>Tab Group '+n+'</h2>');
+		}
+		var tabs = sess[n].split(',\\"url\\":\\"');
+		out.push('<div style=\'margin-left:2.25em\'>');
+		for (var j=1; j < tabs.length; j++) {
+			out.push('<h4>Tab ' + j + '</h4>\n<div class=\'urllist\'>'); 
+			var strTemp = tabs[j];
+			var strURL = strTemp.substr(0, strTemp.indexOf('\\",'));
+			var tabtitle = strTemp.split(',\\"title\\":\\"');
+			if (tabtitle.length === 2){
+				strTitle = tabtitle[1].substr(0, tabtitle[1].indexOf('\\"}'));
+			} else {
+				strTitle = '[Title Not Available]';
+			}
+			out.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong><br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+			out.push('</div>');
+		}
+		out.push('</div>');
+	}
+	var elOut = document.getElementById('output');
+	var finfo = document.querySelectorAll('#fileinfo span');
+	elOut.insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">OneTab Tab Gropus</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n' + out.join('\n') + '\n</div><!--hi-->');
+	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+	document.getElementById('btnSave').removeAttribute('disabled');
+}
+function buildURLList(inp){
+	var out=new Array();
+	var taburls = inp.value.split('{"url":"'), k, strURL, strTitle;
+	out.push('<div class=\'urllist\'>');
+	for (k=taburls.length - 1; k >= 1; k--) {
+		strURL = taburls[k].substr(0, taburls[k].indexOf('","'));
+		strTitle = taburls[k].split('"title":"')[1] || '[Title Not Available]';
+		strTitle = strTitle.substr(0, strTitle.indexOf('","'));
+		if (strTitle.length == 0) strTitle = '[Title Not Available]';
+		out.push('<p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong><br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+	}
+	out.push('</div>');
+	var elOut = document.getElementById('output');
+	var finfo = document.querySelectorAll('#fileinfo span');
+	elOut.insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session History (Unstructured URL List)</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> '+ finfo[1].textContent + '.</p>\n' + out.join('\n') + '\n</div><!--hi-->');
+	document.getElementById('msgproc').insertAdjacentHTML('beforeend', '<span style="font-style:italic">done!</span> ');
+	document.getElementById('btnSave').removeAttribute('disabled');
+}
+function SaveList(){
+	var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+	saveAs(
+		  new Blob(
+			  ['<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Extracted Session History</title></head><body>'+document.getElementById('output').innerHTML+'</body></html>']
+			, {type: 'text/html;charset=UTF-8'}
+		)
+		, 'sessionhist('+fn.replace(/\./g,'_')+').html'
+	);
+}
+function CreateShortcut(){
+	saveAs(
+		  new Blob(
+			  ['[InternetShortcut]\nURL='+location.href]
+			, {type: 'application/x-ms-shortcut'}
+		)
+		, document.title+'.url'
+	);
+}
+function readfile(f){
+	// Add notation below textarea
+	if (document.getElementById('fileinfo')) document.getElementById('fileinfo').remove();
+	document.getElementById('drop_zone').insertAdjacentHTML('afterend', '<p id="fileinfo">File name: <span>'+f.name+'</span>; Size: '+f.size+'; last modified <span>'+new Date(f.lastModified).toLocaleString()+'</span></p>');
+	// Use a FileReader to pull the contents out of the file and drop it into the textarea element
+	var reader = new FileReader();
+	reader.onload = function(evt) { // handle result of the file read
+		if (typeof evt.target.result == 'string') document.getElementById('drop_zone').value = evt.target.result;
+		else {
+			let utf8decoder = new TextDecoder('utf-8');
+			var jsontxt = utf8decoder.decode(decomp(evt.target.result));
+			document.getElementById('drop_zone').value = jsontxt;
+		}
+	};
+	// Assume anything without .jsonlz4 or .baklz4 in the name is uncompressed
+	if (f.name.indexOf('.jsonlz4') == -1 && f.name.indexOf('.baklz4') == -1) reader.readAsText(f);
+	else reader.readAsArrayBuffer(f);
+}
+function decomp(arrbuff){
+	// See: https://github.com/pierrec/node-lz4
+	// Create typed array from ArrayBuffer
+	var u8arrbuff = new Uint8Array(arrbuff);
+	// Is it a standard JSON file with jsonlz4 somewhere in its name?
+	if ('{' == String.fromCharCode(u8arrbuff[0])) {
+		return u8arrbuff;
+	}
+	// Compute uncompressed data size
+	var u8sz = u8arrbuff.slice(8, 12);
+	var origLen = u8sz[0] + (u8sz[1] * 256) + (u8sz[2] * 256 * 256) + (u8sz[3] * 256 * 256 * 256);
+	// Extract compressed data (past header)
+	jsonstart = 12;
+	var u8comp = u8arrbuff.slice(jsonstart);
+	// Create LZ4 buffer
+	var Buffer = require('buffer').Buffer;
+	var LZ4 = require('lz4');
+	var comp = new Buffer(u8comp);
+	var orig = new Buffer(origLen);
+	// Do the deed
+	var decomLen = LZ4.decodeBlock(comp, orig);
+	return orig.slice(0, decomLen);
+}
+function SaveJSON(){
+	// Check the JSON
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.length === 0 || txt.indexOf('{') === -1){
+		alert('Contents of the box do not look like JSON');
+		return;
+	}
+	if (txt.indexOf('{"sessions":') === 0 && txt.indexOf('{"tabs":[') < 0){
+		alert('Contents of the box look like a Tab Session Manager storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('{"backupSessionStore":') === 0){
+		alert('Contents of the box look like a Session Boss storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('{"state":"{\\"tabGroups\\":') === 0){
+		alert('Contents of the box look like a OneTab storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('[SessionManager v2]') === 0){
+		txt = txt.substr(txt.indexOf('{'));
+	}
+	try {
+		var oSess = JSON.parse(txt);
+		// Make blob and trigger save dialog
+		var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+		saveAs(
+			new Blob(
+				  [JSON.stringify(oSess)]
+				, {type: 'application/json;charset=UTF-8'}
+			), 'sessionstore('+fn.replace(/\./g,'_')+').json'
+		);
+	} catch (err) {
+		alert('Not saving due to failure parsing JSON: ' + err.toString());
+	}
+
+}
+function SaveJSONEmbed(){
+	// Check the JSON
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.length === 0 || txt.indexOf('{') === -1){
+		alert('Contents of the box do not look like JSON');
+		return;
+	}
+	if (txt.indexOf('{"sessions":') === 0 && txt.indexOf('{"tabs":[') < 0){
+		alert('Contents of the box look like a Tab Session Manager storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('{"backupSessionStore":') === 0){
+		alert('Contents of the box look like a Session Boss storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('{"state":"{\\"tabGroups\\":') === 0){
+		alert('Contents of the box look like a OneTab storage.js file.\n\nCurrently unable to convert to Firefox\'s native format.');
+		return;
+	}
+	if (txt.indexOf('[SessionManager v2]') === 0){
+		txt = txt.substr(txt.indexOf('{'));
+	}
+	try {
+		var oSess = JSON.parse(txt);
+		// Iterate until we find the first embedded session
+		var winds, tabs, taburls, i, j, last, eSess = null;
+		// Current session open windows only
+		winds = oSess.windows;
+		eSessSearch:
+		for (i=0; i < winds.length; i++) {
+			// Open tabs
+			tabs = winds[i].tabs;
+			for (j=0; j < tabs.length; j++) {
+				taburls = tabs[j].entries.slice();
+				last = taburls.splice(tabs[j].index - 1, 1);
+				if (last[0].url === 'about:sessionrestore'){
+					try {
+						eSess = tabs[j].formdata.id.sessionData;
+						if (eSess) break eSessSearch;
+					} catch(err){}
+				}
+			}
+			// Closed tabs
+			tabs = winds[i]._closedTabs;
+			for (j=0; j < tabs.length; j++) {
+				taburls = tabs[j].state.entries.slice();
+				last = taburls.splice(tabs[j].state.index - 1, 1);
+				if (last[0].url === 'about:sessionrestore'){
+					try {
+						eSess = tabs[j].formdata.id.sessionData;
+						if (eSess) buildListJSON(eSess, false);
+					} catch(err){}
+				}
+			}
+		}
+		if (eSess != null){
+			// Make blob and trigger save dialog
+			var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+			saveAs(
+				new Blob(
+					  [JSON.stringify(eSess)]
+					, {type: 'application/json;charset=UTF-8'}
+				), 'sessionstore('+fn.replace(/\./g,'_')+'-embedded).json'
+			);
+		}
+	} catch (err) {
+		alert('Not saving due to failure parsing JSON: ' + err.toString());
+	}
+}
+function SaveJSONText(){
+	// Check the JSON
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.length === 0){
+		alert('Box is empty?');
+		return;
+	}
+	// Make blob and trigger save dialog
+	var fn = document.querySelectorAll('#fileinfo span')[0].textContent;
+	saveAs(
+		new Blob(
+			  [txt]
+			, {type: 'text/plain;charset=UTF-8'}
+		), 'sessionstore('+fn.replace(/\./g,'_')+').txt'
+	);
+}
+// copied/adapted from https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
+function drop_handler(ev) {
+	ev.preventDefault();
+	// Clear colors
+	dragleave_handler(ev);
+	// If dropped items aren't files, reject them
+	var dt = ev.dataTransfer;
+	if (dt.items) {
+		// Use DataTransferItemList interface to access the file(s) (break after first file opened)
+		for (var i=0; i < dt.items.length; i++) {
+			if (dt.items[i].kind == "file") {
+				readfile(dt.items[i].getAsFile());
+				document.getElementById('btnScrounge').removeAttribute('disabled');
+				document.getElementById('btnDumblist').removeAttribute('disabled');
+				document.getElementById('btnJSON').removeAttribute('disabled');
+				document.getElementById('btnText').removeAttribute('disabled');
+				window.setTimeout(checkForEmbeds, 4000);
+				break;
+			}
+		}
+	} else { // ** NOT TESTED **
+		// Use DataTransfer interface to access the file(s)  (break after first file opened)
+		for (var i=0; i < dt.files.length; i++) {
+			readfile(dt.files[i]); 
+			document.getElementById('btnScrounge').removeAttribute('disabled');
+			document.getElementById('btnDumblist').removeAttribute('disabled');
+			document.getElementById('btnJSON').removeAttribute('disabled');
+			document.getElementById('btnText').removeAttribute('disabled');
+			window.setTimeout(checkForEmbeds, 4000);
+			break;
+		}  
+	}
+}
+function dragover_handler(ev) {
+  // Prevent default select and drag behavior
+  ev.preventDefault();
+}
+function dragend_handler(ev) {
+  console.log("dragEnd");
+  // Remove all of the drag data
+  var dt = ev.dataTransfer;
+  if (dt.items) {
+    // Use DataTransferItemList interface to remove the drag data
+    for (var i = 0; i < dt.items.length; i++) {
+      dt.items.remove(i);
+    }
+  } else {
+    // Use DataTransfer interface to remove the drag data
+    ev.dataTransfer.clearData();
+  }
+}
+function dragenter_handler(ev) {
+  // Color it up
+  var tgt = ev.target;
+  if (tgt.id == 'drop_zone') {
+    tgt.style.backgroundColor = '#ff8';
+	tgt.style.borderColor = 'blue';
+  }
+}
+function dragleave_handler(ev) {
+  // Default colors
+  var tgt = ev.target;
+  if (tgt.id == 'drop_zone') {
+    tgt.style.backgroundColor = '#fff';
+	tgt.style.borderColor = '#000';
+  }
+}
+function loadFile(inp){
+	if (inp.files.length == 0) return;
+	if (inp.files.length > 1){
+		inp.insertAdjacentHTML('afterend', '<br><em>First file used</em>');
+	}
+	readfile(inp.files[0]);
+	document.getElementById('btnScrounge').removeAttribute('disabled');
+	document.getElementById('btnDumblist').removeAttribute('disabled');
+	document.getElementById('btnJSON').removeAttribute('disabled');
+	document.getElementById('btnText').removeAttribute('disabled');
+}
+function checkForEmbeds(){
+	// Look for the embedded session string
+	var txt = document.getElementById('drop_zone').value;
+	if (txt.indexOf('"formdata":{"id":{"sessionData":') > -1){
+		document.getElementById('btnEmbed').removeAttribute('disabled');
+	}
+}
+function reenableScrounge(evt){
+	if (evt.target.nodeName == 'INPUT' || evt.target.nodeName === 'LABEL'){
+		document.getElementById('btnScrounge').removeAttribute('disabled');
+		document.getElementById('btnDumblist').removeAttribute('disabled');
+	}
+}
+document.getElementById('scrounge_options').addEventListener('click', reenableScrounge, false);
+</script>
+<script type="text/javascript" src="ffu.js"></script>
+<script type="text/javascript" src="FileSaver.min.js"></script>
+<script type="text/javascript" src="lz4.js"></script>
+<style>.attrib{display:none}</style>
+</body>
+</html>
