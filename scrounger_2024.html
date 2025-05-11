@@ -43,11 +43,9 @@
 				</div>
 			</div>
 			<p><em>Note: To scrounge a different file, reload this page (Windows: Ctrl+r. Mac: Command+r). Or click the reload button in the address bar.</em></p>
-
 			<h2>Step 2: Extract URLs / Save Session Links</h2>
 			<p id="scrounge_options"><strong>HTML list options:</strong> <label><input type="checkbox" id="chkCWins" checked>&nbsp;Include Closed Windows</label> <label><input type="checkbox" id="chkCTabs"
 				checked>&nbsp;Include Closed Tabs</label> <label><input type="checkbox" id="chkBFH" checked>&nbsp;Include Back-Forward History</label><br>
-				<label><input type="checkbox" id="chkTabGrp" checked>&nbsp;Show tab group names</label><br>
 				<em>Possibly buggy:</em> <label><input type="checkbox" id="chkEmb">&nbsp;Expand Embedded Sessions</label></p>
 			<p><strong>HTML list commands:</strong> <button onclick="parsejson(false)" id="btnScrounge" disabled>Scrounge URLs</button> (<em>Fallback:</em> <button onclick="parsejson(true)" id="btnDumblist" disabled>Unstructured URL list</button>) <button onclick="SaveList()" id="btnSave" disabled>Save List</button></p>
 			<p><strong>JSON file:</strong> <button onclick="SaveJSON()" id="btnJSON" disabled>Save Uncompressed JSON (sessionstore.js format)</button> <button onclick="SaveJSONEmbed()" id="btnEmbed" disabled>Save Embedded Session (first found only)</button> <button onclick="SaveJSONText()" id="btnText" disabled>Save Uncompressed JSON as text</button></p>
@@ -75,11 +73,11 @@
 		</div><!-- #main -->
 	</article>
 	<footer>
-		<p>Copyright &copy; 2025 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). 
-			lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/blob/master/build/lz4.js">June 22, 2020</a>). 
+		<p>Copyright &copy; 2024 Jefferson Scher (<a href="https://opensource.org/licenses/BSD-3-Clause">BSD-3-Clause License</a>). 
+			lz4.js &copy; 2016 Pierre Curto (<a href="https://github.com/pierrec/node-lz4/blob/master/LICENSE">MIT License</a>; <a href="https://github.com/pierrec/node-lz4/tree/8b0027e08cb5d486e212b18b906d76a43f740f88/build">Sept. 1, 2016</a>). 
 			FileSaver.js &copy; 2016 Eli Grey (<a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>; <a href="https://github.com/eligrey/FileSaver.js/tree/1.3.2">v1.3.2</a>). 
 			MDN code samples &copy; Mozilla Contributors or Public Domain (<a href="https://developer.mozilla.org/en-US/docs/MDN/About#Copyrights_and_licenses">License</a>). 
-			No claim to your data! Updated 2025-05-11. (<a href="scrounger_2024.html">July 2024 Version</a>)</p>
+			No claim to your data! Updated 2024-07-20. (<a href="scrounger_previous.html">Previous Version</a>; <a href="scrounger_20180826.html">Older Logic</a>)</p>
 	</footer>
 	<script type="text/javascript">
 		// Compatibility check
@@ -99,7 +97,6 @@
 		document.getElementById('btnJSON').setAttribute('disabled', 'disabled');
 		document.getElementById('btnEmbed').setAttribute('disabled', 'disabled');
 		document.getElementById('btnText').setAttribute('disabled', 'disabled');
-
 		// Functions used in the page
 		function parsejson(blnDumblist) {
 			if (document.getElementById('scrounged')) {
@@ -124,8 +121,10 @@
 						oSess = null;
 					}
 					if (oSess != null) {
+						//console.log('Calling buildListJSON()');
 						buildListJSON(oSess, true);
 					} else {
+						//console.log('Calling buildList()');
 						buildList(txt);
 					}
 				}
@@ -142,6 +141,7 @@
 		}
 		var outJ = new Array();
 		function buildListJSON(obj, outer) {
+			//console.log('buildListJSON running');
 			if (outer === true) {
 				var finfo = document.querySelectorAll('#fileinfo span');
 				document.getElementById('output').insertAdjacentHTML('afterbegin', '\n<div id="scrounged"><h1 style="margin-bottom:0;">Session History</h1>\n<p style="margin-top:0;"><em>Extracted from</em> ' + finfo[0].textContent + ' <em>as of</em> ' + finfo[1].textContent + '.</p>\n</div>');
@@ -152,9 +152,7 @@
 			var blnCWins = document.getElementById('chkCWins').checked;
 			var blnBFH = document.getElementById('chkBFH').checked;
 			var blnEmb = document.getElementById('chkEmb').checked;
-			var blnTabGrp = document.getElementById('chkTabGrp').checked;
 			var winds, tabs, taburls, i, j, k, last, eSess, page = 0, tabcount = 0, txtPrivate = '';
-
 			// Current session open windows array
 			winds = obj.windows;
 			for (i = 0; i < winds.length; i++) {
@@ -165,6 +163,7 @@
 				// Current window open tabs array
 				tabs = winds[i].tabs;
 				for (j = 0; j < tabs.length; j++) {
+					//console.log('Window '+ (i+1) + ' Tab ' + (j+1));
 					if (txtPrivate.length == 0 && tabs[j].isPrivate) txtPrivate = ' (Private)';
 					else {
 						if (tabs[j].hasOwnProperty('userContextId') && tabs[j].userContextId != 0) {
@@ -175,17 +174,10 @@
 					tabcount++;
 					// Current tab back-forward URLs array
 					taburls = tabs[j].entries.slice();
+					//console.log('Tab ' + (j+1) + "; taburls.length=" + taburls.length);
 					// Output indexed page
 					last = taburls.splice(tabs[j].index - 1, 1);
 					last[0]['last'] = tabs[j].lastAccessed;
-					if (Object.hasOwn(tabs[j], 'groupId')){
-						if (blnTabGrp && Object.hasOwn(winds[i], 'groups')){
-							var TGitem = winds[i].groups.findIndex((element) => element.id == tabs[j].groupId);
-							last[0]['tabGroup'] = winds[i].groups[TGitem].name;
-						} else {
-							last[0]['tabGroup'] = tabs[j].groupId;
-						}
-					}
 					pushentry(last[0]);
 					page++;
 					if (blnBFH) {
@@ -257,50 +249,6 @@
 				if (tabs.length > 0) outJ.push('  </div><!--End Closed Tabs-->');
 			}
 			if (winds.length > 0) outJ.push('</div><!--End Open Windows-->');
-
-			// Current session saved/closed tab groups
-			try {
-				var grps = obj.savedGroups;
-			} catch (err) {
-				grps = [];
-			}
-			for (i = 0; i < grps.length; i++) {
-				if (i == 0) outJ.push('<div>\n  <h2>Saved/Closed Tab Groups</h2>');
-				var gName = ' - ' + grps[i].name || '';
-				outJ.push('  <h3 style=\'border-bottom:1px solid #000\'>Saved Group ' + (i + 1) + gName + '</h3>\n  <div style=\'margin-left:2.25em\'>');
-				// Current group tabs array
-				tabs = grps[i].tabs;
-				for (j = 0; j < tabs.length; j++) {
-					if (tabs[j].hasOwnProperty('userContextId') && tabs[j].userContextId != 0) {
-						txtPrivate = ' [Container ID ' + tabs[j].userContextId + ']';
-					} else txtPrivate = '';
-					outJ.push('    <h4>Tab ' + (j + 1) + txtPrivate + '</h4>\n    <div class=\'urllist\'>');
-					tabcount++;
-					// Current tab back-forward URLs array
-					taburls = tabs[j].state.entries.slice();
-					// Output indexed page
-					last = taburls.splice(tabs[j].state.index - 1, 1);
-					last[0]['last'] = tabs[j].state.lastAccessed;
-					pushentry(last[0]);
-					page++;
-					if (blnBFH) {
-						// Output other pages, if any
-						if (taburls.length > 0) {
-							taburls.reverse();
-							for (k = 0; k < taburls.length; k++) {
-								if (k == 0) outJ.push('      <div class=\'backhist\'><span class=\'bhtoggle\' onclick=\'toggleBH(this);\'>&larr; Back-Forward History:</span>\n        <div>');
-								pushentry(taburls[k]);
-								page++;
-								if (k == (taburls.length - 1)) outJ.push('        </div>\n      </div>');
-							}
-						}
-					}
-					outJ.push('    </div><!--End Tab-->');
-				}
-				outJ.push('  </div><!--End Group Tabs-->');
-			}
-			if (grps.length > 0) outJ.push('</div><!--End Saved/Closed Tab Groups -->');
-
 			// Current session closed windows array
 			try {
 				winds = obj._closedWindows;
@@ -582,9 +530,7 @@
 					strCurrent = '';
 				}
 			} else strCurrent = '';
-			if (Object.hasOwn(oEntry, 'tabGroup')) var strGroup = '[' + oEntry.tabGroup + '] '
-			else strGroup = '';
-			outJ.push('        <p>' + strGroup + '<strong>' + cleanQuotes(scrub(strTitle)) + '</strong>' + strCurrent + '<br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
+			outJ.push('        <p><strong>' + cleanQuotes(scrub(strTitle)) + '</strong>' + strCurrent + '<br><a href=\'' + strURL + '\' target=\'_blank\'>' + scrub(strURL) + '</a></p>');
 		}
 		function flush() {
 			//console.log(outJ.join('\n'));
